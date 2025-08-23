@@ -62,6 +62,20 @@ def main():
         print("Biometrics: Fingerprints and photo captured successfully")
         print()
         
+        print("Step 8: Attend Consular Interview")
+        interview_result = visa_app.interview()
+        print(interview_result)
+        print(f"Interview outcome: {visa_app.interview_result}")
+        print()
+        
+        print("SUMMARY OF APPLICATION:")
+        print("=" * 40)
+        print(f"Visa Type: {visa_app.visa_type}")
+        print(f"DS-160 ID: {visa_app.ds160_confirmation_id}")
+        print(f"Payment ID: {visa_app.payment_confirmation_id}")
+        print(f"Biometrics ID: {visa_app.biometrics_confirmation_id}")
+        print(f"Final Result: {visa_app.interview_result}")
+        
     except ValueError as e:
         print(f"Error: {e}")
 

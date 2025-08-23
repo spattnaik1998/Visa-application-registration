@@ -15,6 +15,7 @@ class VisaApplication:
         self.payment_confirmation_id = None
         self.appointment = None
         self.biometrics_confirmation_id = None
+        self.interview_result = None
     
     def select_visa_type(self, visa_type):
         """Select the appropriate visa type (B-1/B-2, F-1, H-1B, etc.)"""
@@ -193,7 +194,31 @@ class VisaApplication:
     
     def interview(self):
         """Attend the visa interview"""
-        pass
+        import random
+        
+        if self.biometrics_confirmation_id is None:
+            raise ValueError("Biometrics must be collected before attending the interview")
+        
+        if self.interview_result is None:
+            # Simple deterministic logic for testing: B1/B2 and F1 have higher approval rates
+            if self.visa_type in ["B1/B2", "F1"]:
+                approval_chance = 0.85
+            else:  # H1B, J1
+                approval_chance = 0.70
+            
+            # Use a seed based on application data for somewhat deterministic results in testing
+            random.seed(hash(self.ds160_confirmation_id + self.payment_confirmation_id) % 1000)
+            is_approved = random.random() < approval_chance
+            
+            self.interview_result = "Approved" if is_approved else "Denied"
+            
+            # Reset random seed for other operations
+            random.seed()
+        
+        if self.interview_result == "Approved":
+            return f"Interview completed. Result: APPROVED - Your visa application has been approved!"
+        else:
+            return f"Interview completed. Result: DENIED - Your visa application was not approved at this time."
     
     def process_application(self):
         """Administrative processing of the visa application"""

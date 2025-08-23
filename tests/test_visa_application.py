@@ -431,9 +431,60 @@ class TestVisaApplication:
         assert "Biometrics collected successfully" in result1
         assert "Biometrics collected successfully" in result2
     
-    def test_interview(self, visa_app):
-        """Test visa interview functionality"""
-        pass
+    def test_interview_with_biometrics(self, visa_app):
+        """Test interview with completed biometrics"""
+        from datetime import datetime, timedelta
+        
+        visa_app.select_visa_type("B1/B2")
+        visa_app.pay_fee(160.0)
+        
+        future_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+        visa_app.schedule_appointment(future_date)
+        visa_app.collect_biometrics()
+        
+        result = visa_app.interview()
+        
+        assert "Interview completed" in result
+        assert visa_app.interview_result in ["Approved", "Denied"]
+        assert ("APPROVED" in result and visa_app.interview_result == "Approved") or \
+               ("DENIED" in result and visa_app.interview_result == "Denied")
+    
+    def test_interview_without_biometrics(self, visa_app):
+        """Test interview without biometrics should raise ValueError"""
+        from datetime import datetime, timedelta
+        
+        visa_app.select_visa_type("B1/B2")
+        visa_app.pay_fee(160.0)
+        
+        future_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+        visa_app.schedule_appointment(future_date)
+        
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.interview()
+        assert "Biometrics must be collected before attending the interview" in str(exc_info.value)
+    
+    def test_interview_deterministic_result(self, visa_app):
+        """Test that interview result is consistent for same application"""
+        from datetime import datetime, timedelta
+        
+        visa_app.select_visa_type("F1")
+        visa_app.pay_fee(160.0)
+        
+        future_date = (datetime.now() + timedelta(days=15)).strftime("%Y-%m-%d")
+        visa_app.schedule_appointment(future_date, "14:00")
+        visa_app.collect_biometrics()
+        
+        # First interview call
+        result1 = visa_app.interview()
+        first_result = visa_app.interview_result
+        
+        # Second interview call should return same result
+        result2 = visa_app.interview()
+        second_result = visa_app.interview_result
+        
+        assert first_result == second_result
+        assert result1 == result2
+        assert visa_app.interview_result in ["Approved", "Denied"]
     
     def test_process_application(self, visa_app):
         """Test application processing functionality"""
