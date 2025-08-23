@@ -13,6 +13,7 @@ class VisaApplication:
         self.ds160_confirmation_id = None
         self.payment_amount = 0.0
         self.payment_confirmation_id = None
+        self.appointment = None
     
     def select_visa_type(self, visa_type):
         """Select the appropriate visa type (B-1/B-2, F-1, H-1B, etc.)"""
@@ -146,9 +147,35 @@ class VisaApplication:
         
         return f"Payment successful. Amount: ${amount:.2f}, Confirmation ID: {self.payment_confirmation_id}"
     
-    def schedule_appointment(self):
+    def schedule_appointment(self, appointment_date, appointment_time=None):
         """Schedule an appointment at the U.S. embassy or consulate"""
-        pass
+        from datetime import datetime
+        
+        if self.payment_confirmation_id is None:
+            raise ValueError("Payment must be completed before scheduling an appointment")
+        
+        if not appointment_date or not isinstance(appointment_date, str):
+            raise ValueError("Appointment date must be provided as a non-empty string")
+        
+        try:
+            date_obj = datetime.strptime(appointment_date, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError("Invalid date format. Please use YYYY-MM-DD format")
+        
+        today = datetime.now().date()
+        if date_obj.date() <= today:
+            raise ValueError("Appointment date must be in the future")
+        
+        appointment_info = {
+            "date": appointment_date,
+            "time": appointment_time if appointment_time else "09:00",
+            "location": "U.S. Embassy/Consulate"
+        }
+        
+        self.appointment = appointment_info
+        
+        time_display = f" at {appointment_info['time']}" if appointment_time else ""
+        return f"Appointment scheduled successfully for {appointment_date}{time_display} at {appointment_info['location']}"
     
     def collect_biometrics(self):
         """Collect biometric information (fingerprints, photo)"""

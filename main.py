@@ -48,6 +48,14 @@ def main():
         print(f"Required fee for {visa_app.visa_type}: $160.00")
         print()
         
+        print("Step 6: Schedule Appointment")
+        from datetime import datetime, timedelta
+        future_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+        appointment_result = visa_app.schedule_appointment(future_date, "10:30")
+        print(appointment_result)
+        print(f"Appointment details: {visa_app.appointment}")
+        print()
+        
     except ValueError as e:
         print(f"Error: {e}")
 

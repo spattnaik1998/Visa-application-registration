@@ -298,9 +298,92 @@ class TestVisaApplication:
             visa_app.pay_fee(160.0)
         assert "No visa type selected" in str(exc_info.value)
     
-    def test_schedule_appointment(self, visa_app):
-        """Test appointment scheduling functionality"""
-        pass
+    def test_schedule_appointment_valid_future_date(self, visa_app):
+        """Test scheduling appointment with valid future date"""
+        from datetime import datetime, timedelta
+        
+        visa_app.select_visa_type("B1/B2")
+        visa_app.pay_fee(160.0)
+        
+        future_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+        result = visa_app.schedule_appointment(future_date)
+        
+        assert "Appointment scheduled successfully" in result
+        assert future_date in result
+        assert "U.S. Embassy/Consulate" in result
+        assert visa_app.appointment is not None
+        assert visa_app.appointment["date"] == future_date
+        assert visa_app.appointment["time"] == "09:00"
+        assert visa_app.appointment["location"] == "U.S. Embassy/Consulate"
+    
+    def test_schedule_appointment_with_time(self, visa_app):
+        """Test scheduling appointment with specific time"""
+        from datetime import datetime, timedelta
+        
+        visa_app.select_visa_type("F1")
+        visa_app.pay_fee(160.0)
+        
+        future_date = (datetime.now() + timedelta(days=15)).strftime("%Y-%m-%d")
+        result = visa_app.schedule_appointment(future_date, "14:30")
+        
+        assert "Appointment scheduled successfully" in result
+        assert future_date in result
+        assert "at 14:30" in result
+        assert visa_app.appointment["time"] == "14:30"
+    
+    def test_schedule_appointment_past_date(self, visa_app):
+        """Test scheduling appointment with past date should raise ValueError"""
+        from datetime import datetime, timedelta
+        
+        visa_app.select_visa_type("B1/B2")
+        visa_app.pay_fee(160.0)
+        
+        past_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.schedule_appointment(past_date)
+        assert "Appointment date must be in the future" in str(exc_info.value)
+    
+    def test_schedule_appointment_today(self, visa_app):
+        """Test scheduling appointment for today should raise ValueError"""
+        from datetime import datetime
+        
+        visa_app.select_visa_type("B1/B2")
+        visa_app.pay_fee(160.0)
+        
+        today = datetime.now().strftime("%Y-%m-%d")
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.schedule_appointment(today)
+        assert "Appointment date must be in the future" in str(exc_info.value)
+    
+    def test_schedule_appointment_no_payment(self, visa_app):
+        """Test scheduling appointment without payment should raise ValueError"""
+        from datetime import datetime, timedelta
+        
+        visa_app.select_visa_type("B1/B2")
+        
+        future_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.schedule_appointment(future_date)
+        assert "Payment must be completed before scheduling an appointment" in str(exc_info.value)
+    
+    def test_schedule_appointment_invalid_date_format(self, visa_app):
+        """Test scheduling appointment with invalid date format should raise ValueError"""
+        visa_app.select_visa_type("B1/B2")
+        visa_app.pay_fee(160.0)
+        
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.schedule_appointment("2025-13-45")
+        assert "Invalid date format" in str(exc_info.value)
+        assert "YYYY-MM-DD format" in str(exc_info.value)
+    
+    def test_schedule_appointment_empty_input(self, visa_app):
+        """Test scheduling appointment with empty date should raise ValueError"""
+        visa_app.select_visa_type("B1/B2")
+        visa_app.pay_fee(160.0)
+        
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.schedule_appointment("")
+        assert "Appointment date must be provided as a non-empty string" in str(exc_info.value)
     
     def test_collect_biometrics(self, visa_app):
         """Test biometric collection functionality"""
