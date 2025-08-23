@@ -18,6 +18,13 @@ class VisaApplication:
         self.interview_result = None
         self.processing_status = None
         self.visa_number = None
+        
+        # DS-160 specific fields
+        self.full_name = None
+        self.passport_number = None
+        self.dob = None
+        self.nationality = None
+        self.email = None
     
     def select_visa_type(self, visa_type):
         """Select the appropriate visa type (B-1/B-2, F-1, H-1B, etc.)"""
@@ -40,9 +47,26 @@ class VisaApplication:
         """Gather required documents for the visa application"""
         pass
     
-    def fill_ds160(self):
+    def fill_ds160(self, form_data: dict):
         """Fill out the DS-160 online application form"""
-        pass
+        import random
+        import string
+        
+        # Store form data
+        self.full_name = form_data.get("full_name")
+        self.passport_number = form_data.get("passport_number")
+        self.dob = form_data.get("dob")
+        self.nationality = form_data.get("nationality")
+        self.email = form_data.get("email")
+        
+        # Store in ds160_form_data for backward compatibility
+        self.ds160_form_data = form_data.copy()
+        
+        # Generate DS-160 confirmation ID
+        if not self.ds160_confirmation_id:
+            self.ds160_confirmation_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        
+        return f"DS-160 form submitted successfully. Confirmation ID: {self.ds160_confirmation_id}"
     
     def pay_fee(self):
         """Pay the visa application fee"""
