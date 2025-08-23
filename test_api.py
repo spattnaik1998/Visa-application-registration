@@ -286,3 +286,253 @@ class TestDS160API:
             )
             # Should either pass (200) or fail validation (422), but not crash (500)
             assert response.status_code in [200, 422]
+
+class TestPaymentAPI:
+    """Test suite for Visa Fee Payment API endpoints"""
+    
+    def test_pay_visa_fee_valid_payment(self):
+        """Test paying visa fee with valid payment data"""
+        valid_payment_data = {
+            "application_id": "APP12345",
+            "amount": 160.0,
+            "currency": "USD",
+            "payment_method": "credit_card",
+            "transaction_id": "TXN98765"
+        }
+        
+        response = client.post(
+            "/api/v1/pay_visa_fee",
+            json=valid_payment_data
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "success"
+        assert data["message"] == "Visa fee payment recorded successfully"
+        assert "payment_confirmation_id" in data
+        assert len(data["payment_confirmation_id"]) == 8
+        assert data["amount"] == 160.0
+        assert data["currency"] == "USD"
+    
+    def test_pay_visa_fee_different_currencies(self):
+        """Test paying visa fee with different valid currencies"""
+        currencies_and_amounts = [
+            ("USD", 160.0),
+            ("EUR", 145.0),
+            ("INR", 12500.0)
+        ]
+        
+        for currency, amount in currencies_and_amounts:
+            payment_data = {
+                "application_id": f"APP{currency}123",
+                "amount": amount,
+                "currency": currency,
+                "payment_method": "credit_card",
+                "transaction_id": f"TXN{currency}456"
+            }
+            
+            response = client.post(
+                "/api/v1/pay_visa_fee",
+                json=payment_data
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["currency"] == currency
+            assert data["amount"] == amount
+    
+    def test_pay_visa_fee_different_payment_methods(self):
+        """Test paying visa fee with different valid payment methods"""
+        payment_methods = ["credit_card", "debit_card", "upi", "paypal"]
+        
+        for method in payment_methods:
+            payment_data = {
+                "application_id": f"APP{method.upper()}123",
+                "amount": 160.0,
+                "currency": "USD",
+                "payment_method": method,
+                "transaction_id": f"TXN{method.upper()}456"
+            }
+            
+            response = client.post(
+                "/api/v1/pay_visa_fee",
+                json=payment_data
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "success"
+    
+    def test_pay_visa_fee_invalid_currency(self):
+        """Test paying visa fee with invalid currency"""
+        invalid_payment_data = {
+            "application_id": "APP12345",
+            "amount": 160.0,
+            "currency": "CAD",  # Not in allowed currencies
+            "payment_method": "credit_card",
+            "transaction_id": "TXN98765"
+        }
+        
+        response = client.post(
+            "/api/v1/pay_visa_fee",
+            json=invalid_payment_data
+        )
+        assert response.status_code == 422
+    
+    def test_pay_visa_fee_negative_amount(self):
+        """Test paying visa fee with negative amount"""
+        invalid_payment_data = {
+            "application_id": "APP12345",
+            "amount": -160.0,  # Negative amount
+            "currency": "USD",
+            "payment_method": "credit_card",
+            "transaction_id": "TXN98765"
+        }
+        
+        response = client.post(
+            "/api/v1/pay_visa_fee",
+            json=invalid_payment_data
+        )
+        assert response.status_code == 422
+        assert "positive number" in response.json()["detail"][0]["msg"].lower()
+    
+    def test_pay_visa_fee_amount_too_small(self):
+        """Test paying visa fee with amount below minimum"""
+        invalid_payment_data = {
+            "application_id": "APP12345",
+            "amount": 25.0,  # Below minimum of 50
+            "currency": "USD",
+            "payment_method": "credit_card",
+            "transaction_id": "TXN98765"
+        }
+        
+        response = client.post(
+            "/api/v1/pay_visa_fee",
+            json=invalid_payment_data
+        )
+        assert response.status_code == 422
+        assert "minimum payment amount is 50" in response.json()["detail"][0]["msg"].lower()
+    
+    def test_pay_visa_fee_amount_too_large(self):
+        """Test paying visa fee with amount above maximum"""
+        invalid_payment_data = {
+            "application_id": "APP12345",
+            "amount": 15000.0,  # Above maximum of 10,000
+            "currency": "USD",
+            "payment_method": "credit_card",
+            "transaction_id": "TXN98765"
+        }
+        
+        response = client.post(
+            "/api/v1/pay_visa_fee",
+            json=invalid_payment_data
+        )
+        assert response.status_code == 422
+        assert "maximum payment amount is 10,000" in response.json()["detail"][0]["msg"].lower()
+    
+    def test_pay_visa_fee_invalid_payment_method(self):
+        """Test paying visa fee with invalid payment method"""
+        invalid_payment_data = {
+            "application_id": "APP12345",
+            "amount": 160.0,
+            "currency": "USD",
+            "payment_method": "bitcoin",  # Not in allowed payment methods
+            "transaction_id": "TXN98765"
+        }
+        
+        response = client.post(
+            "/api/v1/pay_visa_fee",
+            json=invalid_payment_data
+        )
+        assert response.status_code == 422
+    
+    def test_pay_visa_fee_invalid_application_id(self):
+        """Test paying visa fee with invalid application ID"""
+        invalid_payment_data = {
+            "application_id": "APP-123",  # Contains hyphen (not alphanumeric)
+            "amount": 160.0,
+            "currency": "USD",
+            "payment_method": "credit_card",
+            "transaction_id": "TXN98765"
+        }
+        
+        response = client.post(
+            "/api/v1/pay_visa_fee",
+            json=invalid_payment_data
+        )
+        assert response.status_code == 422
+        assert "alphanumeric" in response.json()["detail"][0]["msg"].lower()
+    
+    def test_pay_visa_fee_application_id_too_short(self):
+        """Test paying visa fee with application ID too short"""
+        invalid_payment_data = {
+            "application_id": "AB",  # Too short (minimum 3 characters)
+            "amount": 160.0,
+            "currency": "USD",
+            "payment_method": "credit_card",
+            "transaction_id": "TXN98765"
+        }
+        
+        response = client.post(
+            "/api/v1/pay_visa_fee",
+            json=invalid_payment_data
+        )
+        assert response.status_code == 422
+        assert "3 characters" in response.json()["detail"][0]["msg"]
+    
+    def test_pay_visa_fee_invalid_transaction_id(self):
+        """Test paying visa fee with invalid transaction ID"""
+        invalid_payment_data = {
+            "application_id": "APP12345",
+            "amount": 160.0,
+            "currency": "USD",
+            "payment_method": "credit_card",
+            "transaction_id": "TXN-987"  # Contains hyphen (not alphanumeric)
+        }
+        
+        response = client.post(
+            "/api/v1/pay_visa_fee",
+            json=invalid_payment_data
+        )
+        assert response.status_code == 422
+        assert "alphanumeric" in response.json()["detail"][0]["msg"].lower()
+    
+    def test_pay_visa_fee_transaction_id_too_short(self):
+        """Test paying visa fee with transaction ID too short"""
+        invalid_payment_data = {
+            "application_id": "APP12345",
+            "amount": 160.0,
+            "currency": "USD",
+            "payment_method": "credit_card",
+            "transaction_id": "TX12"  # Too short (minimum 5 characters)
+        }
+        
+        response = client.post(
+            "/api/v1/pay_visa_fee",
+            json=invalid_payment_data
+        )
+        assert response.status_code == 422
+        assert "5 characters" in response.json()["detail"][0]["msg"]
+    
+    def test_pay_visa_fee_missing_transaction_id(self):
+        """Test paying visa fee with missing transaction_id field"""
+        incomplete_payment_data = {
+            "application_id": "APP12345",
+            "amount": 160.0,
+            "currency": "USD",
+            "payment_method": "credit_card"
+            # Missing transaction_id
+        }
+        
+        response = client.post(
+            "/api/v1/pay_visa_fee",
+            json=incomplete_payment_data
+        )
+        assert response.status_code == 422
+    
+    def test_pay_visa_fee_missing_all_required_fields(self):
+        """Test paying visa fee with missing required fields"""
+        incomplete_payment_data = {}
+        
+        response = client.post(
+            "/api/v1/pay_visa_fee",
+            json=incomplete_payment_data
+        )
+        assert response.status_code == 422

@@ -25,6 +25,13 @@ class VisaApplication:
         self.dob = None
         self.nationality = None
         self.email = None
+        
+        # Payment specific fields
+        self.fee_amount = None
+        self.fee_currency = None
+        self.payment_method = None
+        self.transaction_id = None
+        self.payment_status = None
     
     def select_visa_type(self, visa_type):
         """Select the appropriate visa type (B-1/B-2, F-1, H-1B, etc.)"""
@@ -68,9 +75,23 @@ class VisaApplication:
         
         return f"DS-160 form submitted successfully. Confirmation ID: {self.ds160_confirmation_id}"
     
-    def pay_fee(self):
+    def pay_fee(self, payment_data: dict):
         """Pay the visa application fee"""
-        pass
+        import random
+        import string
+        
+        # Store payment data
+        self.fee_amount = payment_data.get("amount")
+        self.fee_currency = payment_data.get("currency")
+        self.payment_method = payment_data.get("payment_method")
+        self.transaction_id = payment_data.get("transaction_id")
+        self.payment_status = "completed"
+        
+        # Generate payment confirmation ID if not already exists
+        if not self.payment_confirmation_id:
+            self.payment_confirmation_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        
+        return f"Visa fee payment of {self.fee_amount} {self.fee_currency} processed successfully. Payment ID: {self.payment_confirmation_id}"
     
     def schedule_appointment(self):
         """Schedule an appointment at the U.S. embassy or consulate"""

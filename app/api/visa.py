@@ -81,6 +81,46 @@ class DS160FormResponse(BaseModel):
     message: str
     confirmation_id: str
 
+class PaymentRequest(BaseModel):
+    application_id: str
+    amount: float
+    currency: Literal["USD", "EUR", "INR"]
+    payment_method: Literal["credit_card", "debit_card", "upi", "paypal"]
+    transaction_id: str
+    
+    @validator('application_id')
+    def validate_application_id(cls, v):
+        if not v or len(v.strip()) < 3:
+            raise ValueError('Application ID must be at least 3 characters long')
+        if not re.match(r'^[A-Z0-9]+$', v.strip().upper()):
+            raise ValueError('Application ID must be alphanumeric (letters and numbers only)')
+        return v.strip().upper()
+    
+    @validator('amount')
+    def validate_amount(cls, v):
+        if not isinstance(v, (int, float)) or v <= 0:
+            raise ValueError('Amount must be a positive number')
+        if v < 50:
+            raise ValueError('Minimum payment amount is 50')
+        if v > 10000:  # Reasonable upper limit
+            raise ValueError('Maximum payment amount is 10,000')
+        return round(float(v), 2)  # Round to 2 decimal places
+    
+    @validator('transaction_id')
+    def validate_transaction_id(cls, v):
+        if not v or len(v.strip()) < 5:
+            raise ValueError('Transaction ID must be at least 5 characters long')
+        if not re.match(r'^[A-Z0-9]+$', v.strip().upper()):
+            raise ValueError('Transaction ID must be alphanumeric (letters and numbers only)')
+        return v.strip().upper()
+
+class PaymentResponse(BaseModel):
+    status: str
+    message: str
+    payment_confirmation_id: str
+    amount: float
+    currency: str
+
 # In-memory storage for demonstration (in production, use a database)
 visa_applications = {}
 
@@ -156,6 +196,58 @@ async def fill_ds160(request: DS160FormRequest):
             status="success",
             message="DS-160 form submitted successfully",
             confirmation_id=visa_app.ds160_confirmation_id
+        )
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=ErrorResponse(
+                status="error",
+                message=str(e)
+            ).dict()
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=ErrorResponse(
+                status="error", 
+                message="Internal server error"
+            ).dict()
+        )
+
+@router.post("/pay_visa_fee", response_model=PaymentResponse)
+async def pay_visa_fee(request: PaymentRequest):
+    """
+    Pay the visa application fee.
+    
+    This is Step 3 of the U.S. visa application process.
+    """
+    try:
+        # Create a new visa application instance for this step
+        visa_app = VisaApplication()
+        
+        # Prepare payment data
+        payment_data = {
+            "application_id": request.application_id,
+            "amount": request.amount,
+            "currency": request.currency,
+            "payment_method": request.payment_method,
+            "transaction_id": request.transaction_id
+        }
+        
+        # Call the pay_fee method
+        message = visa_app.pay_fee(payment_data)
+        
+        # Store the application (in production, use database with proper session management)
+        application_id = f"payment_{len(visa_applications) + 1}"
+        visa_applications[application_id] = visa_app
+        
+        return PaymentResponse(
+            status="success",
+            message="Visa fee payment recorded successfully",
+            payment_confirmation_id=visa_app.payment_confirmation_id,
+            amount=request.amount,
+            currency=request.currency
         )
         
     except ValueError as e:
