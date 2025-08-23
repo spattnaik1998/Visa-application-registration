@@ -22,6 +22,13 @@ def main():
         print(eligibility_result)
         print()
         
+        print("Step 3: Gather Required Documents")
+        documents = {"passport": True}
+        document_result = visa_app.gather_documents(documents)
+        print(document_result)
+        print(f"Documents provided: {visa_app.documents}")
+        print()
+        
     except ValueError as e:
         print(f"Error: {e}")
 

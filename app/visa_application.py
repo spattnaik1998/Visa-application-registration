@@ -8,6 +8,7 @@ class VisaApplication:
         self.admission_letter = False
         self.job_offer = False
         self.sponsor_letter = False
+        self.documents = {}
     
     def select_visa_type(self, visa_type):
         """Select the appropriate visa type (B-1/B-2, F-1, H-1B, etc.)"""
@@ -52,9 +53,35 @@ class VisaApplication:
                 raise ValueError("J1 visa requires a sponsor letter from an approved program sponsor")
             return "Eligibility confirmed for J1 visa with sponsor letter"
     
-    def gather_documents(self):
+    def gather_documents(self, documents):
         """Gather required documents for the visa application"""
-        pass
+        if self.visa_type is None:
+            raise ValueError("No visa type selected. Please select a visa type first.")
+        
+        if not documents or not isinstance(documents, dict):
+            raise ValueError("Documents must be provided as a non-empty dictionary")
+        
+        self.documents = documents.copy()
+        
+        required_documents = {
+            "B1/B2": ["passport"],
+            "F1": ["passport", "admission_letter"],
+            "H1B": ["passport", "job_offer"],
+            "J1": ["passport", "sponsor_letter"]
+        }
+        
+        required_for_visa = required_documents.get(self.visa_type, [])
+        missing_documents = []
+        
+        for doc in required_for_visa:
+            if doc not in documents or not documents[doc]:
+                missing_documents.append(doc)
+        
+        if missing_documents:
+            missing_list = ", ".join(missing_documents)
+            raise ValueError(f"Missing required documents for {self.visa_type} visa: {missing_list}")
+        
+        return f"All required documents gathered for {self.visa_type} visa"
     
     def fill_ds160(self):
         """Fill out the DS-160 online application form"""

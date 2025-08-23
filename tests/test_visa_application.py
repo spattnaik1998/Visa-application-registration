@@ -87,9 +87,75 @@ class TestVisaApplication:
             visa_app.check_eligibility()
         assert "No visa type selected" in str(exc_info.value)
     
-    def test_gather_documents(self, visa_app):
-        """Test document gathering functionality"""
-        pass
+    def test_gather_documents_b1b2_valid(self, visa_app):
+        """Test B1/B2 visa document gathering with valid documents"""
+        visa_app.select_visa_type("B1/B2")
+        documents = {"passport": True}
+        result = visa_app.gather_documents(documents)
+        assert result == "All required documents gathered for B1/B2 visa"
+        assert visa_app.documents == documents
+    
+    def test_gather_documents_f1_valid(self, visa_app):
+        """Test F1 visa document gathering with valid documents"""
+        visa_app.select_visa_type("F1")
+        documents = {"passport": True, "admission_letter": True}
+        result = visa_app.gather_documents(documents)
+        assert result == "All required documents gathered for F1 visa"
+        assert visa_app.documents == documents
+    
+    def test_gather_documents_h1b_valid(self, visa_app):
+        """Test H1B visa document gathering with valid documents"""
+        visa_app.select_visa_type("H1B")
+        documents = {"passport": True, "job_offer": True}
+        result = visa_app.gather_documents(documents)
+        assert result == "All required documents gathered for H1B visa"
+        assert visa_app.documents == documents
+    
+    def test_gather_documents_j1_valid(self, visa_app):
+        """Test J1 visa document gathering with valid documents"""
+        visa_app.select_visa_type("J1")
+        documents = {"passport": True, "sponsor_letter": True}
+        result = visa_app.gather_documents(documents)
+        assert result == "All required documents gathered for J1 visa"
+        assert visa_app.documents == documents
+    
+    def test_gather_documents_f1_missing_admission_letter(self, visa_app):
+        """Test F1 visa with missing admission letter"""
+        visa_app.select_visa_type("F1")
+        documents = {"passport": True, "admission_letter": False}
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.gather_documents(documents)
+        assert "Missing required documents for F1 visa: admission_letter" in str(exc_info.value)
+    
+    def test_gather_documents_h1b_missing_job_offer(self, visa_app):
+        """Test H1B visa with missing job offer"""
+        visa_app.select_visa_type("H1B")
+        documents = {"passport": True}
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.gather_documents(documents)
+        assert "Missing required documents for H1B visa: job_offer" in str(exc_info.value)
+    
+    def test_gather_documents_missing_passport(self, visa_app):
+        """Test any visa with missing passport"""
+        visa_app.select_visa_type("B1/B2")
+        documents = {"passport": False}
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.gather_documents(documents)
+        assert "Missing required documents for B1/B2 visa: passport" in str(exc_info.value)
+    
+    def test_gather_documents_empty_dictionary(self, visa_app):
+        """Test gather documents with empty dictionary"""
+        visa_app.select_visa_type("B1/B2")
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.gather_documents({})
+        assert "Documents must be provided as a non-empty dictionary" in str(exc_info.value)
+    
+    def test_gather_documents_no_visa_type_selected(self, visa_app):
+        """Test gather documents without selecting visa type"""
+        documents = {"passport": True}
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.gather_documents(documents)
+        assert "No visa type selected" in str(exc_info.value)
     
     def test_fill_ds160(self, visa_app):
         """Test DS-160 form filling functionality"""
