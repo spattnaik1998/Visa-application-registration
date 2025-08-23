@@ -36,9 +36,56 @@ class TestVisaApplication:
         assert "Visa type must be a non-empty string" in str(exc_info.value)
         assert visa_app.visa_type is None
     
-    def test_check_eligibility(self, visa_app):
-        """Test eligibility checking functionality"""
-        pass
+    def test_check_eligibility_f1_with_admission_letter(self, visa_app):
+        """Test F1 eligibility with admission letter"""
+        visa_app.select_visa_type("F1")
+        result = visa_app.check_eligibility(admission_letter=True)
+        assert result == "Eligibility confirmed for F1 visa with admission letter"
+    
+    def test_check_eligibility_f1_without_admission_letter(self, visa_app):
+        """Test F1 eligibility without admission letter raises ValueError"""
+        visa_app.select_visa_type("F1")
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.check_eligibility(admission_letter=False)
+        assert "F1 visa requires an admission letter" in str(exc_info.value)
+    
+    def test_check_eligibility_b1b2_automatic_pass(self, visa_app):
+        """Test B1/B2 eligibility passes automatically"""
+        visa_app.select_visa_type("B1/B2")
+        result = visa_app.check_eligibility()
+        assert result == "Eligibility confirmed for B1/B2 visa"
+    
+    def test_check_eligibility_h1b_with_job_offer(self, visa_app):
+        """Test H1B eligibility with job offer"""
+        visa_app.select_visa_type("H1B")
+        result = visa_app.check_eligibility(job_offer=True)
+        assert result == "Eligibility confirmed for H1B visa with job offer"
+    
+    def test_check_eligibility_h1b_without_job_offer(self, visa_app):
+        """Test H1B eligibility without job offer raises ValueError"""
+        visa_app.select_visa_type("H1B")
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.check_eligibility(job_offer=False)
+        assert "H1B visa requires a job offer" in str(exc_info.value)
+    
+    def test_check_eligibility_j1_with_sponsor_letter(self, visa_app):
+        """Test J1 eligibility with sponsor letter"""
+        visa_app.select_visa_type("J1")
+        result = visa_app.check_eligibility(sponsor_letter=True)
+        assert result == "Eligibility confirmed for J1 visa with sponsor letter"
+    
+    def test_check_eligibility_j1_without_sponsor_letter(self, visa_app):
+        """Test J1 eligibility without sponsor letter raises ValueError"""
+        visa_app.select_visa_type("J1")
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.check_eligibility(sponsor_letter=False)
+        assert "J1 visa requires a sponsor letter" in str(exc_info.value)
+    
+    def test_check_eligibility_no_visa_type_selected(self, visa_app):
+        """Test check eligibility without selecting visa type raises ValueError"""
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.check_eligibility()
+        assert "No visa type selected" in str(exc_info.value)
     
     def test_gather_documents(self, visa_app):
         """Test document gathering functionality"""
