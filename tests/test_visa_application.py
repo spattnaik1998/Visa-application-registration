@@ -572,6 +572,102 @@ class TestVisaApplication:
         assert result1 == result2
         assert visa_app.processing_status in ["Visa Approved", "Administrative Processing"]
     
-    def test_issue_visa(self, visa_app):
-        """Test visa issuance functionality"""
-        pass
+    def test_issue_visa_approved_status(self, visa_app):
+        """Test visa issuance with approved processing status"""
+        from datetime import datetime, timedelta
+        
+        visa_app.select_visa_type("B1/B2")
+        visa_app.pay_fee(160.0)
+        
+        future_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+        visa_app.schedule_appointment(future_date)
+        visa_app.collect_biometrics()
+        
+        # Force approved processing status
+        visa_app.processing_status = "Visa Approved"
+        
+        result = visa_app.issue_visa()
+        
+        assert "VISA ISSUED SUCCESSFULLY" in result
+        assert "Visa Number:" in result
+        assert visa_app.visa_number is not None
+        assert len(visa_app.visa_number) == 10  # Year (4) + random (6)
+        assert visa_app.visa_number.startswith(str(datetime.now().year))
+    
+    def test_issue_visa_denied_status(self, visa_app):
+        """Test visa issuance with denied processing status should raise ValueError"""
+        from datetime import datetime, timedelta
+        
+        visa_app.select_visa_type("H1B")
+        visa_app.pay_fee(190.0)
+        
+        future_date = (datetime.now() + timedelta(days=20)).strftime("%Y-%m-%d")
+        visa_app.schedule_appointment(future_date, "14:00")
+        visa_app.collect_biometrics()
+        
+        # Force denied processing status
+        visa_app.processing_status = "Visa Denied"
+        
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.issue_visa()
+        assert "Cannot issue visa - application was denied" in str(exc_info.value)
+    
+    def test_issue_visa_administrative_processing(self, visa_app):
+        """Test visa issuance with administrative processing should raise ValueError"""
+        from datetime import datetime, timedelta
+        
+        visa_app.select_visa_type("F1")
+        visa_app.pay_fee(160.0)
+        
+        future_date = (datetime.now() + timedelta(days=25)).strftime("%Y-%m-%d")
+        visa_app.schedule_appointment(future_date, "11:30")
+        visa_app.collect_biometrics()
+        
+        # Force administrative processing status
+        visa_app.processing_status = "Administrative Processing"
+        
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.issue_visa()
+        assert "Cannot issue visa - application is still under administrative processing" in str(exc_info.value)
+    
+    def test_issue_visa_no_processing_status(self, visa_app):
+        """Test visa issuance without processing status should raise ValueError"""
+        from datetime import datetime, timedelta
+        
+        visa_app.select_visa_type("J1")
+        visa_app.pay_fee(160.0)
+        
+        future_date = (datetime.now() + timedelta(days=15)).strftime("%Y-%m-%d")
+        visa_app.schedule_appointment(future_date)
+        visa_app.collect_biometrics()
+        
+        # No processing done
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.issue_visa()
+        assert "Application processing must be completed before issuing visa" in str(exc_info.value)
+    
+    def test_issue_visa_multiple_calls_same_number(self, visa_app):
+        """Test that multiple calls to issue_visa return same visa number"""
+        from datetime import datetime, timedelta
+        
+        visa_app.select_visa_type("B1/B2")
+        visa_app.pay_fee(160.0)
+        
+        future_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+        visa_app.schedule_appointment(future_date)
+        visa_app.collect_biometrics()
+        
+        # Force approved processing status
+        visa_app.processing_status = "Visa Approved"
+        
+        # First issuance call
+        result1 = visa_app.issue_visa()
+        first_number = visa_app.visa_number
+        
+        # Second issuance call should return same visa number
+        result2 = visa_app.issue_visa()
+        second_number = visa_app.visa_number
+        
+        assert first_number == second_number
+        assert result1 == result2
+        assert "VISA ISSUED SUCCESSFULLY" in result1

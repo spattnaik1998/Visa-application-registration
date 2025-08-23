@@ -74,15 +74,36 @@ def main():
         print(f"Processing status: {visa_app.processing_status}")
         print()
         
-        print("SUMMARY OF APPLICATION:")
-        print("=" * 40)
+        print("Step 10: Visa Issuance")
+        try:
+            issuance_result = visa_app.issue_visa()
+            print(issuance_result)
+            print(f"Visa Number: {visa_app.visa_number}")
+            print()
+            
+            print("🎉 CONGRATULATIONS! Your U.S. visa has been successfully issued! 🎉")
+            print()
+        except ValueError as visa_error:
+            print(f"Visa issuance not possible: {visa_error}")
+            print()
+        
+        print("COMPLETE APPLICATION SUMMARY:")
+        print("=" * 50)
         print(f"Visa Type: {visa_app.visa_type}")
         print(f"Applicant: {visa_app.ds160_form_data.get('full_name', 'N/A')}")
-        print(f"DS-160 ID: {visa_app.ds160_confirmation_id}")
-        print(f"Payment ID: {visa_app.payment_confirmation_id}")
-        print(f"Biometrics ID: {visa_app.biometrics_confirmation_id}")
-        print(f"Interview Result: {visa_app.interview_result}")
-        print(f"Final Status: {visa_app.processing_status}")
+        print(f"Passport Number: {visa_app.ds160_form_data.get('passport_number', 'N/A')}")
+        print(f"Nationality: {visa_app.ds160_form_data.get('nationality', 'N/A')}")
+        print()
+        print("CONFIRMATION NUMBERS:")
+        print(f"  DS-160 ID: {visa_app.ds160_confirmation_id}")
+        print(f"  Payment ID: {visa_app.payment_confirmation_id}")
+        print(f"  Biometrics ID: {visa_app.biometrics_confirmation_id}")
+        print()
+        print("FINAL RESULTS:")
+        print(f"  Interview Result: {visa_app.interview_result}")
+        print(f"  Processing Status: {visa_app.processing_status}")
+        print(f"  Visa Number: {visa_app.visa_number if visa_app.visa_number else 'Not Issued'}")
+        print("=" * 50)
         
     except ValueError as e:
         print(f"Error: {e}")

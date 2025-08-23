@@ -17,6 +17,7 @@ class VisaApplication:
         self.biometrics_confirmation_id = None
         self.interview_result = None
         self.processing_status = None
+        self.visa_number = None
     
     def select_visa_type(self, visa_type):
         """Select the appropriate visa type (B-1/B-2, F-1, H-1B, etc.)"""
@@ -254,4 +255,24 @@ class VisaApplication:
     
     def issue_visa(self):
         """Final visa issuance or denial"""
-        pass
+        import random
+        import string
+        
+        if self.processing_status is None:
+            raise ValueError("Application processing must be completed before issuing visa")
+        
+        if self.processing_status == "Visa Denied":
+            raise ValueError("Cannot issue visa - application was denied")
+        
+        if self.processing_status == "Administrative Processing":
+            raise ValueError("Cannot issue visa - application is still under administrative processing")
+        
+        if self.processing_status == "Visa Approved":
+            if self.visa_number is None:
+                # Generate visa number with current year prefix
+                from datetime import datetime
+                year = datetime.now().year
+                random_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+                self.visa_number = f"{year}{random_part}"
+            
+            return f"VISA ISSUED SUCCESSFULLY! Visa Number: {self.visa_number}. Your visa is now ready for pickup or delivery."
