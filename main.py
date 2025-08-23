@@ -29,6 +29,19 @@ def main():
         print(f"Documents provided: {visa_app.documents}")
         print()
         
+        print("Step 4: Fill DS-160 Form")
+        form_data = {
+            "full_name": "John Doe",
+            "dob": "1990-01-01",
+            "passport_number": "A12345678",
+            "nationality": "India",
+            "travel_purpose": "Tourism"
+        }
+        ds160_result = visa_app.fill_ds160(form_data)
+        print(ds160_result)
+        print(f"Form submitted for: {visa_app.ds160_form_data['full_name']}")
+        print()
+        
     except ValueError as e:
         print(f"Error: {e}")
 

@@ -9,6 +9,8 @@ class VisaApplication:
         self.job_offer = False
         self.sponsor_letter = False
         self.documents = {}
+        self.ds160_form_data = {}
+        self.ds160_confirmation_id = None
     
     def select_visa_type(self, visa_type):
         """Select the appropriate visa type (B-1/B-2, F-1, H-1B, etc.)"""
@@ -83,9 +85,36 @@ class VisaApplication:
         
         return f"All required documents gathered for {self.visa_type} visa"
     
-    def fill_ds160(self):
+    def fill_ds160(self, form_data):
         """Fill out the DS-160 online application form"""
-        pass
+        import random
+        import string
+        
+        if self.visa_type is None:
+            raise ValueError("No visa type selected. Please select a visa type first.")
+        
+        if not form_data or not isinstance(form_data, dict):
+            raise ValueError("Form data must be provided as a non-empty dictionary")
+        
+        required_fields = ["full_name", "dob", "passport_number", "nationality", "travel_purpose"]
+        missing_fields = []
+        
+        for field in required_fields:
+            if field not in form_data:
+                missing_fields.append(field)
+            elif not isinstance(form_data[field], str) or not form_data[field].strip():
+                if field not in missing_fields:
+                    missing_fields.append(field)
+        
+        if missing_fields:
+            missing_list = ", ".join(missing_fields)
+            raise ValueError(f"Missing or invalid required fields: {missing_list}")
+        
+        self.ds160_form_data = form_data.copy()
+        
+        self.ds160_confirmation_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        
+        return f"DS-160 form submitted successfully. Confirmation ID: {self.ds160_confirmation_id}"
     
     def pay_fee(self):
         """Pay the visa application fee"""

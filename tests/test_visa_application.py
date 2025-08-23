@@ -157,9 +157,84 @@ class TestVisaApplication:
             visa_app.gather_documents(documents)
         assert "No visa type selected" in str(exc_info.value)
     
-    def test_fill_ds160(self, visa_app):
-        """Test DS-160 form filling functionality"""
-        pass
+    def test_fill_ds160_valid_form(self, visa_app):
+        """Test DS-160 form filling with valid data"""
+        visa_app.select_visa_type("B1/B2")
+        form_data = {
+            "full_name": "John Doe",
+            "dob": "1990-01-01",
+            "passport_number": "A12345678",
+            "nationality": "India",
+            "travel_purpose": "Tourism"
+        }
+        result = visa_app.fill_ds160(form_data)
+        assert "DS-160 form submitted successfully" in result
+        assert "Confirmation ID:" in result
+        assert visa_app.ds160_confirmation_id is not None
+        assert len(visa_app.ds160_confirmation_id) == 8
+        assert visa_app.ds160_form_data == form_data
+    
+    def test_fill_ds160_missing_required_fields(self, visa_app):
+        """Test DS-160 form with missing required fields"""
+        visa_app.select_visa_type("B1/B2")
+        form_data = {
+            "full_name": "John Doe",
+            "dob": "1990-01-01"
+        }
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.fill_ds160(form_data)
+        assert "Missing or invalid required fields:" in str(exc_info.value)
+        assert "passport_number" in str(exc_info.value)
+        assert "nationality" in str(exc_info.value)
+        assert "travel_purpose" in str(exc_info.value)
+    
+    def test_fill_ds160_empty_dictionary(self, visa_app):
+        """Test DS-160 form with empty dictionary"""
+        visa_app.select_visa_type("B1/B2")
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.fill_ds160({})
+        assert "Form data must be provided as a non-empty dictionary" in str(exc_info.value)
+    
+    def test_fill_ds160_invalid_data_types(self, visa_app):
+        """Test DS-160 form with invalid data types"""
+        visa_app.select_visa_type("B1/B2")
+        form_data = {
+            "full_name": 12345,
+            "dob": "1990-01-01",
+            "passport_number": "A12345678",
+            "nationality": "India",
+            "travel_purpose": "Tourism"
+        }
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.fill_ds160(form_data)
+        assert "Missing or invalid required fields: full_name" in str(exc_info.value)
+    
+    def test_fill_ds160_empty_string_fields(self, visa_app):
+        """Test DS-160 form with empty string fields"""
+        visa_app.select_visa_type("B1/B2")
+        form_data = {
+            "full_name": "",
+            "dob": "1990-01-01",
+            "passport_number": "A12345678",
+            "nationality": "India",
+            "travel_purpose": "Tourism"
+        }
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.fill_ds160(form_data)
+        assert "Missing or invalid required fields: full_name" in str(exc_info.value)
+    
+    def test_fill_ds160_no_visa_type_selected(self, visa_app):
+        """Test DS-160 form without selecting visa type"""
+        form_data = {
+            "full_name": "John Doe",
+            "dob": "1990-01-01",
+            "passport_number": "A12345678",
+            "nationality": "India",
+            "travel_purpose": "Tourism"
+        }
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.fill_ds160(form_data)
+        assert "No visa type selected" in str(exc_info.value)
     
     def test_pay_fee(self, visa_app):
         """Test visa fee payment functionality"""
