@@ -56,6 +56,12 @@ def main():
         print(f"Appointment details: {visa_app.appointment}")
         print()
         
+        print("Step 7: Collect Biometrics")
+        biometrics_result = visa_app.collect_biometrics()
+        print(biometrics_result)
+        print("Biometrics: Fingerprints and photo captured successfully")
+        print()
+        
     except ValueError as e:
         print(f"Error: {e}")
 

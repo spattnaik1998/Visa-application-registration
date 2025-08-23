@@ -385,9 +385,51 @@ class TestVisaApplication:
             visa_app.schedule_appointment("")
         assert "Appointment date must be provided as a non-empty string" in str(exc_info.value)
     
-    def test_collect_biometrics(self, visa_app):
-        """Test biometric collection functionality"""
-        pass
+    def test_collect_biometrics_with_appointment(self, visa_app):
+        """Test biometrics collection with scheduled appointment"""
+        from datetime import datetime, timedelta
+        
+        visa_app.select_visa_type("B1/B2")
+        visa_app.pay_fee(160.0)
+        
+        future_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+        visa_app.schedule_appointment(future_date)
+        
+        result = visa_app.collect_biometrics()
+        
+        assert "Biometrics collected successfully" in result
+        assert "Confirmation ID:" in result
+        assert visa_app.biometrics_confirmation_id is not None
+        assert len(visa_app.biometrics_confirmation_id) == 8
+    
+    def test_collect_biometrics_without_appointment(self, visa_app):
+        """Test biometrics collection without scheduled appointment should raise ValueError"""
+        visa_app.select_visa_type("B1/B2")
+        visa_app.pay_fee(160.0)
+        
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.collect_biometrics()
+        assert "Appointment must be scheduled before collecting biometrics" in str(exc_info.value)
+    
+    def test_collect_biometrics_multiple_calls(self, visa_app):
+        """Test multiple calls to collect_biometrics should return same confirmation ID"""
+        from datetime import datetime, timedelta
+        
+        visa_app.select_visa_type("F1")
+        visa_app.pay_fee(160.0)
+        
+        future_date = (datetime.now() + timedelta(days=15)).strftime("%Y-%m-%d")
+        visa_app.schedule_appointment(future_date, "14:00")
+        
+        result1 = visa_app.collect_biometrics()
+        first_id = visa_app.biometrics_confirmation_id
+        
+        result2 = visa_app.collect_biometrics()
+        second_id = visa_app.biometrics_confirmation_id
+        
+        assert first_id == second_id
+        assert "Biometrics collected successfully" in result1
+        assert "Biometrics collected successfully" in result2
     
     def test_interview(self, visa_app):
         """Test visa interview functionality"""

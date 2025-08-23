@@ -14,6 +14,7 @@ class VisaApplication:
         self.payment_amount = 0.0
         self.payment_confirmation_id = None
         self.appointment = None
+        self.biometrics_confirmation_id = None
     
     def select_visa_type(self, visa_type):
         """Select the appropriate visa type (B-1/B-2, F-1, H-1B, etc.)"""
@@ -179,7 +180,16 @@ class VisaApplication:
     
     def collect_biometrics(self):
         """Collect biometric information (fingerprints, photo)"""
-        pass
+        import random
+        import string
+        
+        if self.appointment is None:
+            raise ValueError("Appointment must be scheduled before collecting biometrics")
+        
+        if self.biometrics_confirmation_id is None:
+            self.biometrics_confirmation_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        
+        return f"Biometrics collected successfully. Confirmation ID: {self.biometrics_confirmation_id}"
     
     def interview(self):
         """Attend the visa interview"""
