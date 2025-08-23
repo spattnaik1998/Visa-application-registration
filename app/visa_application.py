@@ -16,6 +16,7 @@ class VisaApplication:
         self.appointment = None
         self.biometrics_confirmation_id = None
         self.interview_result = None
+        self.processing_status = None
     
     def select_visa_type(self, visa_type):
         """Select the appropriate visa type (B-1/B-2, F-1, H-1B, etc.)"""
@@ -222,7 +223,34 @@ class VisaApplication:
     
     def process_application(self):
         """Administrative processing of the visa application"""
-        pass
+        import random
+        
+        if self.interview_result is None:
+            raise ValueError("Interview must be completed before processing the application")
+        
+        if self.processing_status is None:
+            if self.interview_result == "Approved":
+                # Small chance of administrative processing even after approval
+                random.seed(hash(self.biometrics_confirmation_id + str(self.visa_type)) % 1000)
+                admin_processing_chance = 0.05  # 5% chance
+                
+                if random.random() < admin_processing_chance:
+                    self.processing_status = "Administrative Processing"
+                else:
+                    self.processing_status = "Visa Approved"
+                    
+                # Reset random seed
+                random.seed()
+                
+            elif self.interview_result == "Denied":
+                self.processing_status = "Visa Denied"
+        
+        if self.processing_status == "Visa Approved":
+            return "Application processing complete. Status: VISA APPROVED - Your visa will be issued shortly."
+        elif self.processing_status == "Visa Denied":
+            return "Application processing complete. Status: VISA DENIED - Your application has been rejected."
+        elif self.processing_status == "Administrative Processing":
+            return "Application processing complete. Status: ADMINISTRATIVE PROCESSING - Your application requires additional review. You will be contacted if additional information is needed."
     
     def issue_visa(self):
         """Final visa issuance or denial"""

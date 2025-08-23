@@ -68,13 +68,21 @@ def main():
         print(f"Interview outcome: {visa_app.interview_result}")
         print()
         
+        print("Step 9: Application Processing")
+        processing_result = visa_app.process_application()
+        print(processing_result)
+        print(f"Processing status: {visa_app.processing_status}")
+        print()
+        
         print("SUMMARY OF APPLICATION:")
         print("=" * 40)
         print(f"Visa Type: {visa_app.visa_type}")
+        print(f"Applicant: {visa_app.ds160_form_data.get('full_name', 'N/A')}")
         print(f"DS-160 ID: {visa_app.ds160_confirmation_id}")
         print(f"Payment ID: {visa_app.payment_confirmation_id}")
         print(f"Biometrics ID: {visa_app.biometrics_confirmation_id}")
-        print(f"Final Result: {visa_app.interview_result}")
+        print(f"Interview Result: {visa_app.interview_result}")
+        print(f"Final Status: {visa_app.processing_status}")
         
     except ValueError as e:
         print(f"Error: {e}")

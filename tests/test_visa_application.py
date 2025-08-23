@@ -486,9 +486,91 @@ class TestVisaApplication:
         assert result1 == result2
         assert visa_app.interview_result in ["Approved", "Denied"]
     
-    def test_process_application(self, visa_app):
-        """Test application processing functionality"""
-        pass
+    def test_process_application_approved_interview(self, visa_app):
+        """Test processing with approved interview result"""
+        from datetime import datetime, timedelta
+        
+        visa_app.select_visa_type("B1/B2")
+        visa_app.pay_fee(160.0)
+        
+        future_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+        visa_app.schedule_appointment(future_date)
+        visa_app.collect_biometrics()
+        
+        # Force approved interview result
+        visa_app.interview_result = "Approved"
+        
+        result = visa_app.process_application()
+        
+        assert "Application processing complete" in result
+        assert visa_app.processing_status in ["Visa Approved", "Administrative Processing"]
+        
+        if visa_app.processing_status == "Visa Approved":
+            assert "VISA APPROVED" in result
+        elif visa_app.processing_status == "Administrative Processing":
+            assert "ADMINISTRATIVE PROCESSING" in result
+    
+    def test_process_application_denied_interview(self, visa_app):
+        """Test processing with denied interview result"""
+        from datetime import datetime, timedelta
+        
+        visa_app.select_visa_type("H1B")
+        visa_app.pay_fee(190.0)
+        
+        future_date = (datetime.now() + timedelta(days=20)).strftime("%Y-%m-%d")
+        visa_app.schedule_appointment(future_date, "15:00")
+        visa_app.collect_biometrics()
+        
+        # Force denied interview result
+        visa_app.interview_result = "Denied"
+        
+        result = visa_app.process_application()
+        
+        assert "Application processing complete" in result
+        assert "VISA DENIED" in result
+        assert visa_app.processing_status == "Visa Denied"
+    
+    def test_process_application_no_interview_result(self, visa_app):
+        """Test processing without interview result should raise ValueError"""
+        from datetime import datetime, timedelta
+        
+        visa_app.select_visa_type("F1")
+        visa_app.pay_fee(160.0)
+        
+        future_date = (datetime.now() + timedelta(days=25)).strftime("%Y-%m-%d")
+        visa_app.schedule_appointment(future_date)
+        visa_app.collect_biometrics()
+        
+        # No interview conducted
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.process_application()
+        assert "Interview must be completed before processing the application" in str(exc_info.value)
+    
+    def test_process_application_multiple_calls_consistent(self, visa_app):
+        """Test that multiple calls to process_application return consistent results"""
+        from datetime import datetime, timedelta
+        
+        visa_app.select_visa_type("J1")
+        visa_app.pay_fee(160.0)
+        
+        future_date = (datetime.now() + timedelta(days=10)).strftime("%Y-%m-%d")
+        visa_app.schedule_appointment(future_date, "11:00")
+        visa_app.collect_biometrics()
+        
+        # Force approved interview result
+        visa_app.interview_result = "Approved"
+        
+        # First processing call
+        result1 = visa_app.process_application()
+        first_status = visa_app.processing_status
+        
+        # Second processing call should return same result
+        result2 = visa_app.process_application()
+        second_status = visa_app.processing_status
+        
+        assert first_status == second_status
+        assert result1 == result2
+        assert visa_app.processing_status in ["Visa Approved", "Administrative Processing"]
     
     def test_issue_visa(self, visa_app):
         """Test visa issuance functionality"""
