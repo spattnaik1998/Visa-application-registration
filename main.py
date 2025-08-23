@@ -42,6 +42,12 @@ def main():
         print(f"Form submitted for: {visa_app.ds160_form_data['full_name']}")
         print()
         
+        print("Step 5: Pay Visa Fee")
+        payment_result = visa_app.pay_fee(160.0)
+        print(payment_result)
+        print(f"Required fee for {visa_app.visa_type}: $160.00")
+        print()
+        
     except ValueError as e:
         print(f"Error: {e}")
 

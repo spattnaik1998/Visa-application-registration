@@ -236,9 +236,67 @@ class TestVisaApplication:
             visa_app.fill_ds160(form_data)
         assert "No visa type selected" in str(exc_info.value)
     
-    def test_pay_fee(self, visa_app):
-        """Test visa fee payment functionality"""
-        pass
+    def test_pay_fee_exact_amount_b1b2(self, visa_app):
+        """Test exact fee payment for B1/B2 visa"""
+        visa_app.select_visa_type("B1/B2")
+        result = visa_app.pay_fee(160.0)
+        assert "Payment successful" in result
+        assert "Amount: $160.00" in result
+        assert "Confirmation ID:" in result
+        assert visa_app.payment_confirmation_id is not None
+        assert len(visa_app.payment_confirmation_id) == 8
+        assert visa_app.payment_amount == 160.0
+    
+    def test_pay_fee_exact_amount_h1b(self, visa_app):
+        """Test exact fee payment for H1B visa"""
+        visa_app.select_visa_type("H1B")
+        result = visa_app.pay_fee(190.0)
+        assert "Payment successful" in result
+        assert "Amount: $190.00" in result
+        assert "Confirmation ID:" in result
+        assert visa_app.payment_confirmation_id is not None
+        assert visa_app.payment_amount == 190.0
+    
+    def test_pay_fee_overpayment(self, visa_app):
+        """Test overpayment should be accepted"""
+        visa_app.select_visa_type("F1")
+        result = visa_app.pay_fee(200.0)
+        assert "Payment successful" in result
+        assert "Amount: $200.00" in result
+        assert "Confirmation ID:" in result
+        assert visa_app.payment_confirmation_id is not None
+        assert visa_app.payment_amount == 200.0
+    
+    def test_pay_fee_underpayment_b1b2(self, visa_app):
+        """Test underpayment for B1/B2 visa should raise ValueError"""
+        visa_app.select_visa_type("B1/B2")
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.pay_fee(100.0)
+        assert "Insufficient payment" in str(exc_info.value)
+        assert "Required fee for B1/B2 visa is $160.00" in str(exc_info.value)
+        assert "$100.00 was provided" in str(exc_info.value)
+    
+    def test_pay_fee_underpayment_h1b(self, visa_app):
+        """Test underpayment for H1B visa should raise ValueError"""
+        visa_app.select_visa_type("H1B")
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.pay_fee(150.0)
+        assert "Insufficient payment" in str(exc_info.value)
+        assert "Required fee for H1B visa is $190.00" in str(exc_info.value)
+        assert "$150.00 was provided" in str(exc_info.value)
+    
+    def test_pay_fee_negative_amount(self, visa_app):
+        """Test negative payment amount should raise ValueError"""
+        visa_app.select_visa_type("B1/B2")
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.pay_fee(-50.0)
+        assert "Payment amount must be a non-negative number" in str(exc_info.value)
+    
+    def test_pay_fee_no_visa_type_selected(self, visa_app):
+        """Test payment without selecting visa type should raise ValueError"""
+        with pytest.raises(ValueError) as exc_info:
+            visa_app.pay_fee(160.0)
+        assert "No visa type selected" in str(exc_info.value)
     
     def test_schedule_appointment(self, visa_app):
         """Test appointment scheduling functionality"""

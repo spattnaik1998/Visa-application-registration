@@ -11,6 +11,8 @@ class VisaApplication:
         self.documents = {}
         self.ds160_form_data = {}
         self.ds160_confirmation_id = None
+        self.payment_amount = 0.0
+        self.payment_confirmation_id = None
     
     def select_visa_type(self, visa_type):
         """Select the appropriate visa type (B-1/B-2, F-1, H-1B, etc.)"""
@@ -116,9 +118,33 @@ class VisaApplication:
         
         return f"DS-160 form submitted successfully. Confirmation ID: {self.ds160_confirmation_id}"
     
-    def pay_fee(self):
+    def pay_fee(self, amount):
         """Pay the visa application fee"""
-        pass
+        import random
+        import string
+        
+        if self.visa_type is None:
+            raise ValueError("No visa type selected. Please select a visa type first.")
+        
+        if not isinstance(amount, (int, float)) or amount < 0:
+            raise ValueError("Payment amount must be a non-negative number")
+        
+        visa_fees = {
+            "B1/B2": 160.0,
+            "F1": 160.0,
+            "H1B": 190.0,
+            "J1": 160.0
+        }
+        
+        required_fee = visa_fees.get(self.visa_type)
+        
+        if amount < required_fee:
+            raise ValueError(f"Insufficient payment. Required fee for {self.visa_type} visa is ${required_fee:.2f}, but ${amount:.2f} was provided")
+        
+        self.payment_amount = amount
+        self.payment_confirmation_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        
+        return f"Payment successful. Amount: ${amount:.2f}, Confirmation ID: {self.payment_confirmation_id}"
     
     def schedule_appointment(self):
         """Schedule an appointment at the U.S. embassy or consulate"""
