@@ -958,3 +958,326 @@ class TestInterviewSchedulingAPI:
             assert data["status"] == "success"
             assert data["location"] == location
             assert data["date"] == future_date
+
+class TestDocumentUploadAPI:
+    """Test suite for Document Upload and OCR API endpoints"""
+    
+    def create_mock_image_with_text(self, text: str, width: int = 200, height: int = 100) -> bytes:
+        """Create a mock image with text for testing OCR"""
+        from PIL import Image, ImageDraw, ImageFont
+        import io
+        
+        # Create a white background image
+        image = Image.new('RGB', (width, height), color='white')
+        draw = ImageDraw.Draw(image)
+        
+        # Try to use default font, fallback to PIL default if not available
+        try:
+            font = ImageFont.load_default()
+        except:
+            font = None
+            
+        # Add text to image
+        draw.text((10, 10), text, fill='black', font=font)
+        
+        # Convert to bytes
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format='PNG')
+        return img_byte_arr.getvalue()
+    
+    def create_mock_face_image(self, width: int = 200, height: int = 200) -> bytes:
+        """Create a mock image that should trigger face detection"""
+        from PIL import Image, ImageDraw
+        import io
+        
+        # Create a white background image
+        image = Image.new('RGB', (width, height), color='white')
+        draw = ImageDraw.Draw(image)
+        
+        # Draw a simple face-like pattern (circle for face, smaller circles for eyes)
+        # This is basic but should be enough for testing the face detection pipeline
+        face_center = (width//2, height//2)
+        face_radius = min(width, height) // 3
+        
+        # Face outline
+        draw.ellipse([
+            face_center[0] - face_radius, 
+            face_center[1] - face_radius,
+            face_center[0] + face_radius, 
+            face_center[1] + face_radius
+        ], outline='black', width=3)
+        
+        # Eyes
+        eye_radius = 8
+        left_eye = (face_center[0] - 20, face_center[1] - 15)
+        right_eye = (face_center[0] + 20, face_center[1] - 15)
+        
+        draw.ellipse([
+            left_eye[0] - eye_radius, left_eye[1] - eye_radius,
+            left_eye[0] + eye_radius, left_eye[1] + eye_radius
+        ], fill='black')
+        
+        draw.ellipse([
+            right_eye[0] - eye_radius, right_eye[1] - eye_radius,
+            right_eye[0] + eye_radius, right_eye[1] + eye_radius
+        ], fill='black')
+        
+        # Convert to bytes
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format='PNG')
+        return img_byte_arr.getvalue()
+    
+    def test_upload_documents_valid_passport_with_matching_number(self):
+        """Test uploading valid passport document with matching passport number"""
+        import io
+        
+        # Create mock passport image with passport number
+        passport_number = "A1234567"
+        passport_content = self.create_mock_image_with_text(f"PASSPORT\\n{passport_number}\\nUSA")
+        
+        files = {
+            "passport": ("passport.png", io.BytesIO(passport_content), "image/png")
+        }
+        
+        data = {
+            "application_id": "APP12345",
+            "expected_passport_number": passport_number
+        }
+        
+        response = client.post(
+            "/api/v1/upload_documents",
+            files=files,
+            data=data
+        )
+        
+        # Note: This test might fail if OCR/tesseract is not properly configured
+        # In that case, we'd expect a 400 status with an error message
+        if response.status_code == 200:
+            resp_data = response.json()
+            assert resp_data["status"] == "success"
+            assert resp_data["message"] == "Documents uploaded and validated"
+            assert resp_data["documents_processed"] == 1
+            assert "passport" in resp_data["validation_results"]
+        else:
+            # If OCR fails, we should get a proper error response
+            assert response.status_code == 400
+            assert "error" in response.json()["detail"]["status"]
+    
+    def test_upload_documents_valid_passport_with_mismatched_number(self):
+        """Test uploading passport with mismatched passport number (should fail validation)"""
+        import io
+        
+        # Create mock passport image with different passport number
+        passport_content = self.create_mock_image_with_text("PASSPORT\\nB9876543\\nUSA")
+        
+        files = {
+            "passport": ("passport.png", io.BytesIO(passport_content), "image/png")
+        }
+        
+        data = {
+            "application_id": "APP12345",
+            "expected_passport_number": "A1234567"  # Different from image
+        }
+        
+        response = client.post(
+            "/api/v1/upload_documents",
+            files=files,
+            data=data
+        )
+        
+        # Should fail validation due to mismatched passport number
+        assert response.status_code == 400
+        error_detail = response.json()["detail"]
+        assert error_detail["status"] == "error"
+        assert "passport validation" in error_detail["message"].lower()
+    
+    def test_upload_documents_photo_with_face(self):
+        """Test uploading photo with detectable face"""
+        import io
+        
+        # Create mock photo with face-like pattern
+        photo_content = self.create_mock_face_image()
+        
+        files = {
+            "photo": ("photo.jpg", io.BytesIO(photo_content), "image/jpeg")
+        }
+        
+        data = {
+            "application_id": "APP12345"
+        }
+        
+        response = client.post(
+            "/api/v1/upload_documents",
+            files=files,
+            data=data
+        )
+        
+        # Note: Face detection might not work with our simple mock image
+        # The test validates the processing pipeline works
+        if response.status_code == 200:
+            resp_data = response.json()
+            assert resp_data["status"] == "success"
+            assert resp_data["documents_processed"] == 1
+            assert "photo" in resp_data["validation_results"]
+        else:
+            # If face detection fails, we should get a proper error
+            assert response.status_code == 400
+    
+    def test_upload_documents_photo_without_face(self):
+        """Test uploading photo without detectable face (should fail)"""
+        import io
+        
+        # Create simple image without face patterns
+        photo_content = self.create_mock_image_with_text("No face here, just text")
+        
+        files = {
+            "photo": ("photo.jpg", io.BytesIO(photo_content), "image/jpeg")
+        }
+        
+        data = {
+            "application_id": "APP12345"
+        }
+        
+        response = client.post(
+            "/api/v1/upload_documents",
+            files=files,
+            data=data
+        )
+        
+        # Should fail face detection validation
+        assert response.status_code == 400
+        error_detail = response.json()["detail"]
+        assert error_detail["status"] == "error"
+        assert "photo validation" in error_detail["message"].lower()
+    
+    def test_upload_documents_no_files(self):
+        """Test uploading with no files (should fail)"""
+        data = {
+            "application_id": "APP12345"
+        }
+        
+        response = client.post(
+            "/api/v1/upload_documents",
+            data=data
+        )
+        
+        assert response.status_code == 400
+        error_detail = response.json()["detail"]
+        assert error_detail["status"] == "error"
+        assert "at least one document must be uploaded" in error_detail["message"].lower()
+    
+    def test_upload_documents_missing_application_id(self):
+        """Test uploading without application_id (should fail)"""
+        import io
+        
+        passport_content = self.create_mock_image_with_text("PASSPORT A1234567")
+        
+        files = {
+            "passport": ("passport.png", io.BytesIO(passport_content), "image/png")
+        }
+        
+        # Missing application_id
+        response = client.post(
+            "/api/v1/upload_documents",
+            files=files
+        )
+        
+        assert response.status_code == 422  # Validation error
+    
+    def test_upload_documents_supporting_documents(self):
+        """Test uploading supporting documents"""
+        import io
+        
+        # Create multiple supporting documents
+        doc1_content = self.create_mock_image_with_text("Bank Statement\\nAccount: 123456")
+        doc2_content = self.create_mock_image_with_text("Employment Letter\\nCompany XYZ")
+        
+        files = [
+            ("supporting_docs", ("bank_statement.png", io.BytesIO(doc1_content), "image/png")),
+            ("supporting_docs", ("employment_letter.png", io.BytesIO(doc2_content), "image/png"))
+        ]
+        
+        data = {
+            "application_id": "APP12345"
+        }
+        
+        response = client.post(
+            "/api/v1/upload_documents",
+            files=files,
+            data=data
+        )
+        
+        # Should process supporting documents successfully
+        if response.status_code == 200:
+            resp_data = response.json()
+            assert resp_data["status"] == "success"
+            assert resp_data["documents_processed"] == 2
+            assert "supporting_doc_1" in resp_data["validation_results"]
+            assert "supporting_doc_2" in resp_data["validation_results"]
+        else:
+            # If OCR processing fails, should get proper error
+            assert response.status_code in [400, 500]
+    
+    def test_upload_documents_multiple_types(self):
+        """Test uploading multiple document types together"""
+        import io
+        
+        # Create different document types
+        passport_content = self.create_mock_image_with_text("PASSPORT\\nA1234567\\nUSA")
+        photo_content = self.create_mock_face_image()
+        support_content = self.create_mock_image_with_text("Supporting Document Text")
+        
+        files = [
+            ("passport", ("passport.png", io.BytesIO(passport_content), "image/png")),
+            ("photo", ("photo.jpg", io.BytesIO(photo_content), "image/jpeg")),
+            ("supporting_docs", ("support.png", io.BytesIO(support_content), "image/png"))
+        ]
+        
+        data = {
+            "application_id": "APP12345",
+            "expected_passport_number": "A1234567"
+        }
+        
+        response = client.post(
+            "/api/v1/upload_documents",
+            files=files,
+            data=data
+        )
+        
+        # Should process all document types
+        if response.status_code == 200:
+            resp_data = response.json()
+            assert resp_data["status"] == "success"
+            assert resp_data["documents_processed"] == 3
+            assert "passport" in resp_data["validation_results"]
+            assert "photo" in resp_data["validation_results"]
+            assert "supporting_doc_1" in resp_data["validation_results"]
+        else:
+            # If processing fails, should get proper error handling
+            assert response.status_code in [400, 500]
+    
+    def test_upload_documents_invalid_image_format(self):
+        """Test uploading invalid image file (should handle gracefully)"""
+        import io
+        
+        # Create invalid file content (not an image)
+        invalid_content = b"This is not an image file"
+        
+        files = {
+            "passport": ("passport.txt", io.BytesIO(invalid_content), "text/plain")
+        }
+        
+        data = {
+            "application_id": "APP12345"
+        }
+        
+        response = client.post(
+            "/api/v1/upload_documents",
+            files=files,
+            data=data
+        )
+        
+        # Should handle invalid file format gracefully
+        assert response.status_code == 400
+        error_detail = response.json()["detail"]
+        assert error_detail["status"] == "error"

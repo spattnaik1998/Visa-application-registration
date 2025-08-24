@@ -1,8 +1,13 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, File, UploadFile, Form
 from pydantic import BaseModel, EmailStr, validator
-from typing import Literal
+from typing import Literal, List, Optional
 from datetime import datetime
 import re
+import io
+import pytesseract
+from PIL import Image
+import cv2
+import numpy as np
 from app.models.visa_application import VisaApplication
 
 router = APIRouter()
@@ -163,8 +168,111 @@ class InterviewScheduleResponse(BaseModel):
     location: str
     date: str
 
+class DocumentUploadResponse(BaseModel):
+    status: str
+    message: str
+    documents_processed: int
+    validation_results: dict
+    extracted_text: dict
+
 # In-memory storage for demonstration (in production, use a database)
 visa_applications = {}
+
+# OCR and Computer Vision Helper Functions
+def extract_text_from_image(image_bytes: bytes) -> str:
+    """Extract text from image using OCR"""
+    try:
+        # Convert bytes to PIL Image
+        image = Image.open(io.BytesIO(image_bytes))
+        
+        # Convert to RGB if needed
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        
+        # Use pytesseract to extract text
+        extracted_text = pytesseract.image_to_string(image, config='--psm 6')
+        return extracted_text.strip()
+    except Exception as e:
+        raise ValueError(f"Failed to extract text from image: {str(e)}")
+
+def detect_face_in_image(image_bytes: bytes) -> bool:
+    """Detect if image contains a face using OpenCV"""
+    try:
+        # Convert bytes to numpy array
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        if image is None:
+            raise ValueError("Could not decode image")
+        
+        # Convert to grayscale
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        
+        # Load face cascade classifier
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        
+        # Detect faces
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+        
+        return len(faces) > 0
+    except Exception as e:
+        raise ValueError(f"Failed to detect face in image: {str(e)}")
+
+def validate_passport_number(extracted_text: str, expected_passport_number: str) -> bool:
+    """Validate if passport number from OCR matches expected number"""
+    # Remove spaces and convert to uppercase for comparison
+    cleaned_extracted = re.sub(r'\s+', '', extracted_text.upper())
+    cleaned_expected = re.sub(r'\s+', '', expected_passport_number.upper())
+    
+    # Check if expected passport number is found in extracted text
+    return cleaned_expected in cleaned_extracted
+
+def process_document(file_content: bytes, document_type: str, expected_passport_number: str = None) -> dict:
+    """Process uploaded document with OCR and validation"""
+    result = {
+        "document_type": document_type,
+        "extracted_text": "",
+        "validation_passed": False,
+        "validation_message": ""
+    }
+    
+    try:
+        if document_type == "photo":
+            # For photos, check if face is detected
+            has_face = detect_face_in_image(file_content)
+            result["validation_passed"] = has_face
+            result["validation_message"] = "Face detected in photo" if has_face else "No face detected in photo"
+            result["extracted_text"] = "Photo validation complete"
+            
+        elif document_type == "passport":
+            # For passport, extract text and validate passport number
+            extracted_text = extract_text_from_image(file_content)
+            result["extracted_text"] = extracted_text
+            
+            if expected_passport_number:
+                passport_match = validate_passport_number(extracted_text, expected_passport_number)
+                result["validation_passed"] = passport_match
+                result["validation_message"] = (
+                    f"Passport number {expected_passport_number} found in document" 
+                    if passport_match 
+                    else f"Passport number {expected_passport_number} not found in document"
+                )
+            else:
+                result["validation_passed"] = bool(extracted_text)
+                result["validation_message"] = "Text extracted from passport document"
+                
+        else:
+            # For other documents, just extract text
+            extracted_text = extract_text_from_image(file_content)
+            result["extracted_text"] = extracted_text
+            result["validation_passed"] = bool(extracted_text)
+            result["validation_message"] = "Text successfully extracted from document"
+            
+    except Exception as e:
+        result["validation_passed"] = False
+        result["validation_message"] = f"Error processing document: {str(e)}"
+        
+    return result
 
 @router.post("/select_visa_type", response_model=VisaTypeResponse)
 async def select_visa_type(request: VisaTypeRequest):
@@ -369,6 +477,156 @@ async def schedule_interview(request: InterviewScheduleRequest):
             detail=ErrorResponse(
                 status="error", 
                 message="Internal server error"
+            ).dict()
+        )
+
+
+
+@router.post("/upload_documents", response_model=DocumentUploadResponse)
+async def upload_documents(
+    application_id: str = Form(...),
+    expected_passport_number: Optional[str] = Form(None),
+    passport: Optional[UploadFile] = File(None),
+    photo: Optional[UploadFile] = File(None),
+    supporting_docs: Optional[List[UploadFile]] = File(None)
+):
+    """
+    Upload and validate documents with OCR (Step 5).
+    
+    This endpoint handles document uploads with OCR processing and validation.
+    """
+    try:
+        if not any([passport, photo, supporting_docs]):
+            raise HTTPException(
+                status_code=400,
+                detail=ErrorResponse(
+                    status="error",
+                    message="At least one document must be uploaded"
+                ).dict()
+            )
+        
+        # Create a new visa application instance for this step
+        visa_app = VisaApplication()
+        
+        validation_results = {}
+        extracted_text = {}
+        uploaded_documents = {}
+        documents_processed = 0
+        
+        # Process passport document
+        if passport:
+            try:
+                file_content = await passport.read()
+                result = process_document(file_content, "passport", expected_passport_number)
+                validation_results["passport"] = result
+                extracted_text["passport"] = result["extracted_text"]
+                uploaded_documents["passport"] = {
+                    "filename": passport.filename,
+                    "content_type": passport.content_type,
+                    "size": len(file_content)
+                }
+                documents_processed += 1
+            except Exception as e:
+                validation_results["passport"] = {
+                    "document_type": "passport",
+                    "validation_passed": False,
+                    "validation_message": f"Failed to process passport: {str(e)}",
+                    "extracted_text": ""
+                }
+        
+        # Process photo
+        if photo:
+            try:
+                file_content = await photo.read()
+                result = process_document(file_content, "photo")
+                validation_results["photo"] = result
+                extracted_text["photo"] = result["extracted_text"]
+                uploaded_documents["photo"] = {
+                    "filename": photo.filename,
+                    "content_type": photo.content_type,
+                    "size": len(file_content)
+                }
+                documents_processed += 1
+            except Exception as e:
+                validation_results["photo"] = {
+                    "document_type": "photo",
+                    "validation_passed": False,
+                    "validation_message": f"Failed to process photo: {str(e)}",
+                    "extracted_text": ""
+                }
+        
+        # Process supporting documents
+        if supporting_docs:
+            for i, doc in enumerate(supporting_docs):
+                try:
+                    file_content = await doc.read()
+                    result = process_document(file_content, "supporting")
+                    doc_key = f"supporting_doc_{i+1}"
+                    validation_results[doc_key] = result
+                    extracted_text[doc_key] = result["extracted_text"]
+                    uploaded_documents[doc_key] = {
+                        "filename": doc.filename,
+                        "content_type": doc.content_type,
+                        "size": len(file_content)
+                    }
+                    documents_processed += 1
+                except Exception as e:
+                    doc_key = f"supporting_doc_{i+1}"
+                    validation_results[doc_key] = {
+                        "document_type": "supporting",
+                        "validation_passed": False,
+                        "validation_message": f"Failed to process {doc.filename}: {str(e)}",
+                        "extracted_text": ""
+                    }
+        
+        # Store document data in visa application
+        documents_data = {
+            "uploaded_documents": uploaded_documents,
+            "validation_results": validation_results,
+            "extracted_text": extracted_text
+        }
+        
+        message = visa_app.upload_documents(documents_data)
+        
+        # Check if any critical validations failed
+        passport_failed = (passport and not validation_results.get("passport", {}).get("validation_passed", True))
+        photo_failed = (photo and not validation_results.get("photo", {}).get("validation_passed", True))
+        
+        if passport_failed or photo_failed:
+            failed_docs = []
+            if passport_failed:
+                failed_docs.append("passport validation")
+            if photo_failed:
+                failed_docs.append("photo validation")
+            
+            raise HTTPException(
+                status_code=400,
+                detail=ErrorResponse(
+                    status="error",
+                    message=f"Document validation failed: {', '.join(failed_docs)}"
+                ).dict()
+            )
+        
+        # Store the application (in production, use database with proper session management)
+        application_key = f"documents_{len(visa_applications) + 1}"
+        visa_applications[application_key] = visa_app
+        
+        return {
+            "status": "success",
+            "message": "Documents uploaded and validated",
+            "documents_processed": documents_processed,
+            "validation_results": validation_results,
+            "extracted_text": extracted_text
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=ErrorResponse(
+                status="error", 
+                message=f"Internal server error: {str(e)}"
             ).dict()
         )
 

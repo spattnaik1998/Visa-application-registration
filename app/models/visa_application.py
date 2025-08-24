@@ -39,6 +39,11 @@ class VisaApplication:
         self.interview_date = None
         self.interview_confirmation_id = None
         self.interview_data = {}
+        
+        # Document specific fields
+        self.uploaded_documents = {}
+        self.document_validation_results = {}
+        self.extracted_text = {}
     
     def select_visa_type(self, visa_type):
         """Select the appropriate visa type (B-1/B-2, F-1, H-1B, etc.)"""
@@ -116,6 +121,20 @@ class VisaApplication:
             self.interview_confirmation_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
         
         return f"Interview scheduled successfully for {self.interview_date} at {self.interview_location}. Confirmation ID: {self.interview_confirmation_id}"
+    
+    def upload_documents(self, documents_data: dict):
+        """Upload and store document validation results"""
+        # Store all document information
+        self.uploaded_documents = documents_data.get("uploaded_documents", {})
+        self.document_validation_results = documents_data.get("validation_results", {})
+        self.extracted_text = documents_data.get("extracted_text", {})
+        
+        # Count successful validations
+        successful_validations = sum(1 for result in self.document_validation_results.values() 
+                                   if result.get("validation_passed", False))
+        total_documents = len(self.document_validation_results)
+        
+        return f"Documents uploaded and validated: {successful_validations}/{total_documents} validations passed"
     
     def schedule_appointment(self):
         """Schedule an appointment at the U.S. embassy or consulate"""
