@@ -121,6 +121,48 @@ class PaymentResponse(BaseModel):
     amount: float
     currency: str
 
+class InterviewScheduleRequest(BaseModel):
+    application_id: str
+    location: str
+    date: str  # Format: YYYY-MM-DD
+    
+    @validator('application_id')
+    def validate_application_id(cls, v):
+        if not v or len(v.strip()) < 3:
+            raise ValueError('Application ID must be at least 3 characters long')
+        if not re.match(r'^[A-Z0-9]+$', v.strip().upper()):
+            raise ValueError('Application ID must be alphanumeric (letters and numbers only)')
+        return v.strip().upper()
+    
+    @validator('location')
+    def validate_location(cls, v):
+        if not v or len(v.strip()) < 2:
+            raise ValueError('Location must be at least 2 characters long')
+        return v.strip()
+    
+    @validator('date')
+    def validate_date(cls, v):
+        try:
+            interview_date = datetime.strptime(v, '%Y-%m-%d')
+            today = datetime.now()
+            
+            # Check if date is in the future
+            if interview_date.date() <= today.date():
+                raise ValueError('Interview date must be in the future')
+                
+            return v
+        except ValueError as e:
+            if "time data" in str(e):
+                raise ValueError('Date must be in YYYY-MM-DD format')
+            raise e
+
+class InterviewScheduleResponse(BaseModel):
+    status: str
+    message: str
+    interview_confirmation_id: str
+    location: str
+    date: str
+
 # In-memory storage for demonstration (in production, use a database)
 visa_applications = {}
 
@@ -279,4 +321,54 @@ async def get_visa_types():
             "J1": "Exchange visitor visa"
         }
     }
+
+@router.post("/schedule_interview", response_model=InterviewScheduleResponse)
+async def schedule_interview(request: InterviewScheduleRequest):
+    """
+    Schedule a visa interview (Step 4).
+    
+    This endpoint handles interview scheduling with location and date validation.
+    """
+    try:
+        # Create a new visa application instance for this step
+        visa_app = VisaApplication()
+        
+        # Prepare interview data
+        interview_data = {
+            "application_id": request.application_id,
+            "location": request.location,
+            "date": request.date
+        }
+        
+        # Call the schedule_interview method
+        message = visa_app.schedule_interview(interview_data)
+        
+        # Store the application (in production, use database with proper session management)
+        application_id = f"interview_{len(visa_applications) + 1}"
+        visa_applications[application_id] = visa_app
+        
+        return {
+            "status": "success",
+            "message": "Interview scheduled successfully",
+            "interview_confirmation_id": visa_app.interview_confirmation_id,
+            "location": request.location,
+            "date": request.date
+        }
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=ErrorResponse(
+                status="error",
+                message=str(e)
+            ).dict()
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=ErrorResponse(
+                status="error", 
+                message="Internal server error"
+            ).dict()
+        )
 

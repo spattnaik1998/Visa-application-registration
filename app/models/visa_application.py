@@ -33,6 +33,12 @@ class VisaApplication:
         self.transaction_id = None
         self.payment_status = None
         self.payment_data = {}
+        
+        # Interview specific fields
+        self.interview_location = None
+        self.interview_date = None
+        self.interview_confirmation_id = None
+        self.interview_data = {}
     
     def select_visa_type(self, visa_type):
         """Select the appropriate visa type (B-1/B-2, F-1, H-1B, etc.)"""
@@ -94,6 +100,22 @@ class VisaApplication:
             self.payment_confirmation_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
         
         return f"Visa fee payment of {self.fee_amount} {self.fee_currency} processed successfully. Payment ID: {self.payment_confirmation_id}"
+    
+    def schedule_interview(self, interview_data: dict):
+        """Schedule a visa interview at the U.S. embassy or consulate"""
+        import random
+        import string
+        
+        # Store interview data
+        self.interview_data = interview_data.copy()
+        self.interview_location = interview_data.get("location")
+        self.interview_date = interview_data.get("date")
+        
+        # Generate interview confirmation ID if not already exists
+        if not self.interview_confirmation_id:
+            self.interview_confirmation_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        
+        return f"Interview scheduled successfully for {self.interview_date} at {self.interview_location}. Confirmation ID: {self.interview_confirmation_id}"
     
     def schedule_appointment(self):
         """Schedule an appointment at the U.S. embassy or consulate"""

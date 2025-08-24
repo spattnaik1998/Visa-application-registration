@@ -721,3 +721,240 @@ class TestPaymentAPIEnhancements:
             data = response.json()
             assert data["status"] == "success"
             assert data["message"] == "Visa fee payment recorded successfully"
+
+class TestInterviewSchedulingAPI:
+    """Test suite for Interview Scheduling API endpoints"""
+    
+    def test_schedule_interview_valid_data(self):
+        """Test scheduling interview with valid data"""
+        from datetime import datetime, timedelta
+        
+        future_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+        interview_data = {
+            "application_id": "12345",
+            "location": "New Delhi",
+            "date": future_date
+        }
+        
+        response = client.post(
+            "/api/v1/schedule_interview",
+            json=interview_data
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "success"
+        assert data["message"] == "Interview scheduled successfully"
+        assert "interview_confirmation_id" in data
+        assert data["location"] == "New Delhi"
+        assert data["date"] == future_date
+        assert len(data["interview_confirmation_id"]) == 8
+    
+    def test_schedule_interview_past_date(self):
+        """Test scheduling interview with past date (should fail)"""
+        from datetime import datetime, timedelta
+        
+        past_date = (datetime.now() - timedelta(days=5)).strftime("%Y-%m-%d")
+        interview_data = {
+            "application_id": "ABC123",
+            "location": "Mumbai",
+            "date": past_date
+        }
+        
+        response = client.post(
+            "/api/v1/schedule_interview",
+            json=interview_data
+        )
+        assert response.status_code == 422
+        assert "future" in response.json()["detail"][0]["msg"].lower()
+    
+    def test_schedule_interview_today_date(self):
+        """Test scheduling interview for today (should fail)"""
+        from datetime import datetime
+        
+        today = datetime.now().strftime("%Y-%m-%d")
+        interview_data = {
+            "application_id": "XYZ789",
+            "location": "Chennai",
+            "date": today
+        }
+        
+        response = client.post(
+            "/api/v1/schedule_interview",
+            json=interview_data
+        )
+        assert response.status_code == 422
+        assert "future" in response.json()["detail"][0]["msg"].lower()
+    
+    def test_schedule_interview_missing_application_id(self):
+        """Test scheduling interview with missing application_id"""
+        from datetime import datetime, timedelta
+        
+        future_date = (datetime.now() + timedelta(days=20)).strftime("%Y-%m-%d")
+        interview_data = {
+            "location": "Kolkata",
+            "date": future_date
+            # Missing application_id
+        }
+        
+        response = client.post(
+            "/api/v1/schedule_interview",
+            json=interview_data
+        )
+        assert response.status_code == 422
+    
+    def test_schedule_interview_missing_location(self):
+        """Test scheduling interview with missing location"""
+        from datetime import datetime, timedelta
+        
+        future_date = (datetime.now() + timedelta(days=25)).strftime("%Y-%m-%d")
+        interview_data = {
+            "application_id": "DEF456",
+            "date": future_date
+            # Missing location
+        }
+        
+        response = client.post(
+            "/api/v1/schedule_interview",
+            json=interview_data
+        )
+        assert response.status_code == 422
+    
+    def test_schedule_interview_missing_date(self):
+        """Test scheduling interview with missing date"""
+        interview_data = {
+            "application_id": "GHI789",
+            "location": "Hyderabad"
+            # Missing date
+        }
+        
+        response = client.post(
+            "/api/v1/schedule_interview",
+            json=interview_data
+        )
+        assert response.status_code == 422
+    
+    def test_schedule_interview_empty_location(self):
+        """Test scheduling interview with empty location"""
+        from datetime import datetime, timedelta
+        
+        future_date = (datetime.now() + timedelta(days=15)).strftime("%Y-%m-%d")
+        interview_data = {
+            "application_id": "JKL012",
+            "location": "",  # Empty location
+            "date": future_date
+        }
+        
+        response = client.post(
+            "/api/v1/schedule_interview",
+            json=interview_data
+        )
+        assert response.status_code == 422
+        assert "2 characters" in response.json()["detail"][0]["msg"]
+    
+    def test_schedule_interview_short_location(self):
+        """Test scheduling interview with location too short"""
+        from datetime import datetime, timedelta
+        
+        future_date = (datetime.now() + timedelta(days=40)).strftime("%Y-%m-%d")
+        interview_data = {
+            "application_id": "MNO345",
+            "location": "A",  # Too short
+            "date": future_date
+        }
+        
+        response = client.post(
+            "/api/v1/schedule_interview",
+            json=interview_data
+        )
+        assert response.status_code == 422
+        assert "2 characters" in response.json()["detail"][0]["msg"]
+    
+    def test_schedule_interview_invalid_date_format(self):
+        """Test scheduling interview with invalid date format"""
+        interview_data = {
+            "application_id": "PQR678",
+            "location": "Bangalore",
+            "date": "01-10-2025"  # Wrong format (DD-MM-YYYY instead of YYYY-MM-DD)
+        }
+        
+        response = client.post(
+            "/api/v1/schedule_interview",
+            json=interview_data
+        )
+        assert response.status_code == 422
+        assert "YYYY-MM-DD" in response.json()["detail"][0]["msg"]
+    
+    def test_schedule_interview_invalid_date_values(self):
+        """Test scheduling interview with invalid date values"""
+        interview_data = {
+            "application_id": "STU901",
+            "location": "Pune",
+            "date": "2025-13-45"  # Invalid month and day
+        }
+        
+        response = client.post(
+            "/api/v1/schedule_interview",
+            json=interview_data
+        )
+        assert response.status_code == 422
+        assert "YYYY-MM-DD" in response.json()["detail"][0]["msg"]
+    
+    def test_schedule_interview_short_application_id(self):
+        """Test scheduling interview with application ID too short"""
+        from datetime import datetime, timedelta
+        
+        future_date = (datetime.now() + timedelta(days=35)).strftime("%Y-%m-%d")
+        interview_data = {
+            "application_id": "AB",  # Too short
+            "location": "Ahmedabad",
+            "date": future_date
+        }
+        
+        response = client.post(
+            "/api/v1/schedule_interview",
+            json=interview_data
+        )
+        assert response.status_code == 422
+        assert "3 characters" in response.json()["detail"][0]["msg"]
+    
+    def test_schedule_interview_non_alphanumeric_application_id(self):
+        """Test scheduling interview with non-alphanumeric application ID"""
+        from datetime import datetime, timedelta
+        
+        future_date = (datetime.now() + timedelta(days=50)).strftime("%Y-%m-%d")
+        interview_data = {
+            "application_id": "APP-123",  # Contains hyphen
+            "location": "Gurgaon",
+            "date": future_date
+        }
+        
+        response = client.post(
+            "/api/v1/schedule_interview",
+            json=interview_data
+        )
+        assert response.status_code == 422
+        assert "alphanumeric" in response.json()["detail"][0]["msg"].lower()
+    
+    def test_schedule_interview_various_locations(self):
+        """Test scheduling interview with various valid locations"""
+        from datetime import datetime, timedelta
+        
+        locations = ["New Delhi", "Mumbai Central", "Chennai Embassy", "U.S. Consulate Kolkata"]
+        
+        for i, location in enumerate(locations):
+            future_date = (datetime.now() + timedelta(days=20 + i)).strftime("%Y-%m-%d")
+            interview_data = {
+                "application_id": f"APP{i+1}000",
+                "location": location,
+                "date": future_date
+            }
+            
+            response = client.post(
+                "/api/v1/schedule_interview",
+                json=interview_data
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "success"
+            assert data["location"] == location
+            assert data["date"] == future_date
