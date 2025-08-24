@@ -32,6 +32,7 @@ class VisaApplication:
         self.payment_method = None
         self.transaction_id = None
         self.payment_status = None
+        self.payment_data = {}
     
     def select_visa_type(self, visa_type):
         """Select the appropriate visa type (B-1/B-2, F-1, H-1B, etc.)"""
@@ -81,6 +82,7 @@ class VisaApplication:
         import string
         
         # Store payment data
+        self.payment_data = payment_data.copy()
         self.fee_amount = payment_data.get("amount")
         self.fee_currency = payment_data.get("currency")
         self.payment_method = payment_data.get("payment_method")

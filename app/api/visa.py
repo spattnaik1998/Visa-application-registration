@@ -242,13 +242,13 @@ async def pay_visa_fee(request: PaymentRequest):
         application_id = f"payment_{len(visa_applications) + 1}"
         visa_applications[application_id] = visa_app
         
-        return PaymentResponse(
-            status="success",
-            message="Visa fee payment recorded successfully",
-            payment_confirmation_id=visa_app.payment_confirmation_id,
-            amount=request.amount,
-            currency=request.currency
-        )
+        return {
+            "status": "success",
+            "message": "Visa fee payment recorded successfully",
+            "payment_confirmation_id": visa_app.payment_confirmation_id,
+            "amount": request.amount,
+            "currency": request.currency
+        }
         
     except ValueError as e:
         raise HTTPException(
@@ -279,3 +279,4 @@ async def get_visa_types():
             "J1": "Exchange visitor visa"
         }
     }
+
