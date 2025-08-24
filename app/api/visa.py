@@ -175,6 +175,24 @@ class DocumentUploadResponse(BaseModel):
     validation_results: dict
     extracted_text: dict
 
+class InterviewAttendanceRequest(BaseModel):
+    application_id: str
+    status: Literal["attended", "missed"]
+    
+    @validator('application_id')
+    def validate_application_id(cls, v):
+        if not v or len(v.strip()) < 3:
+            raise ValueError('Application ID must be at least 3 characters long')
+        if not re.match(r'^[A-Z0-9]+$', v.strip().upper()):
+            raise ValueError('Application ID must be alphanumeric (letters and numbers only)')
+        return v.strip().upper()
+
+class InterviewAttendanceResponse(BaseModel):
+    status: str
+    message: str
+    application_id: str
+    interview_status: str
+
 # In-memory storage for demonstration (in production, use a database)
 visa_applications = {}
 
@@ -627,6 +645,56 @@ async def upload_documents(
             detail=ErrorResponse(
                 status="error", 
                 message=f"Internal server error: {str(e)}"
+            ).dict()
+        )
+
+
+
+@router.post("/attend_interview", response_model=InterviewAttendanceResponse)
+async def attend_interview(request: InterviewAttendanceRequest):
+    """
+    Mark interview attendance status (Step 6).
+    
+    This endpoint handles recording whether the applicant attended their visa interview.
+    """
+    try:
+        # Create a new visa application instance for this step
+        visa_app = VisaApplication()
+        
+        # Prepare attendance data
+        attendance_data = {
+            "application_id": request.application_id,
+            "status": request.status
+        }
+        
+        # Call the attend_interview method
+        message = visa_app.attend_interview(attendance_data)
+        
+        # Store the application (in production, use database with proper session management)
+        application_id = f"attendance_{len(visa_applications) + 1}"
+        visa_applications[application_id] = visa_app
+        
+        return {
+            "status": "success",
+            "message": f"Interview attendance recorded successfully",
+            "application_id": request.application_id,
+            "interview_status": request.status
+        }
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail=ErrorResponse(
+                status="error",
+                message=str(e)
+            ).dict()
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=ErrorResponse(
+                status="error", 
+                message="Internal server error"
             ).dict()
         )
 

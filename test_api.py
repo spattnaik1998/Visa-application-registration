@@ -1281,3 +1281,213 @@ class TestDocumentUploadAPI:
         assert response.status_code == 400
         error_detail = response.json()["detail"]
         assert error_detail["status"] == "error"
+
+class TestInterviewAttendanceAPI:
+    """Test suite for Interview Attendance API endpoints"""
+    
+    def test_attend_interview_mark_as_attended(self):
+        """Test marking interview as attended"""
+        attendance_data = {
+            "application_id": "12345",
+            "status": "attended"
+        }
+        
+        response = client.post(
+            "/api/v1/attend_interview",
+            json=attendance_data
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "success"
+        assert data["message"] == "Interview attendance recorded successfully"
+        assert data["application_id"] == "12345"
+        assert data["interview_status"] == "attended"
+    
+    def test_attend_interview_mark_as_missed(self):
+        """Test marking interview as missed"""
+        attendance_data = {
+            "application_id": "APP67890",
+            "status": "missed"
+        }
+        
+        response = client.post(
+            "/api/v1/attend_interview",
+            json=attendance_data
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "success"
+        assert data["message"] == "Interview attendance recorded successfully"
+        assert data["application_id"] == "APP67890"
+        assert data["interview_status"] == "missed"
+    
+    def test_attend_interview_invalid_status_value(self):
+        """Test with invalid status value (should fail)"""
+        attendance_data = {
+            "application_id": "APP123",
+            "status": "invalid_status"  # Not in ["attended", "missed"]
+        }
+        
+        response = client.post(
+            "/api/v1/attend_interview",
+            json=attendance_data
+        )
+        
+        assert response.status_code == 422
+        assert "detail" in response.json()
+    
+    def test_attend_interview_invalid_status_canceled(self):
+        """Test with another invalid status value"""
+        attendance_data = {
+            "application_id": "APP456",
+            "status": "canceled"  # Not allowed
+        }
+        
+        response = client.post(
+            "/api/v1/attend_interview",
+            json=attendance_data
+        )
+        
+        assert response.status_code == 422
+        assert "detail" in response.json()
+    
+    def test_attend_interview_missing_application_id(self):
+        """Test with missing application_id (should fail)"""
+        attendance_data = {
+            "status": "attended"
+            # Missing application_id
+        }
+        
+        response = client.post(
+            "/api/v1/attend_interview",
+            json=attendance_data
+        )
+        
+        assert response.status_code == 422
+        assert "detail" in response.json()
+    
+    def test_attend_interview_missing_status(self):
+        """Test with missing status (should fail)"""
+        attendance_data = {
+            "application_id": "APP789"
+            # Missing status
+        }
+        
+        response = client.post(
+            "/api/v1/attend_interview",
+            json=attendance_data
+        )
+        
+        assert response.status_code == 422
+        assert "detail" in response.json()
+    
+    def test_attend_interview_empty_application_id(self):
+        """Test with empty application_id (should fail)"""
+        attendance_data = {
+            "application_id": "",  # Empty
+            "status": "attended"
+        }
+        
+        response = client.post(
+            "/api/v1/attend_interview",
+            json=attendance_data
+        )
+        
+        assert response.status_code == 422
+        assert "3 characters" in response.json()["detail"][0]["msg"]
+    
+    def test_attend_interview_short_application_id(self):
+        """Test with application_id too short (should fail)"""
+        attendance_data = {
+            "application_id": "AB",  # Too short
+            "status": "missed"
+        }
+        
+        response = client.post(
+            "/api/v1/attend_interview",
+            json=attendance_data
+        )
+        
+        assert response.status_code == 422
+        assert "3 characters" in response.json()["detail"][0]["msg"]
+    
+    def test_attend_interview_non_alphanumeric_application_id(self):
+        """Test with non-alphanumeric application_id (should fail)"""
+        attendance_data = {
+            "application_id": "APP-123",  # Contains hyphen
+            "status": "attended"
+        }
+        
+        response = client.post(
+            "/api/v1/attend_interview",
+            json=attendance_data
+        )
+        
+        assert response.status_code == 422
+        assert "alphanumeric" in response.json()["detail"][0]["msg"].lower()
+    
+    def test_attend_interview_application_id_normalization(self):
+        """Test that application_id is normalized to uppercase"""
+        attendance_data = {
+            "application_id": "app123xyz",  # lowercase
+            "status": "attended"
+        }
+        
+        response = client.post(
+            "/api/v1/attend_interview",
+            json=attendance_data
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["application_id"] == "APP123XYZ"  # Should be normalized to uppercase
+    
+    def test_attend_interview_both_status_values(self):
+        """Test both valid status values work correctly"""
+        valid_statuses = ["attended", "missed"]
+        
+        for status in valid_statuses:
+            attendance_data = {
+                "application_id": f"TEST{status.upper()}",
+                "status": status
+            }
+            
+            response = client.post(
+                "/api/v1/attend_interview",
+                json=attendance_data
+            )
+            
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "success"
+            assert data["interview_status"] == status
+            assert data["application_id"] == f"TEST{status.upper()}"
+    
+    def test_attend_interview_exact_specification(self):
+        """Test with exact specification format from requirements"""
+        attendance_data = {
+            "application_id": "12345",
+            "status": "attended"
+        }
+        
+        response = client.post(
+            "/api/v1/attend_interview",
+            json=attendance_data
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Verify response contains success status
+        assert data["status"] == "success"
+        
+        # Verify all required fields are present
+        required_fields = ["status", "message", "application_id", "interview_status"]
+        for field in required_fields:
+            assert field in data
+        
+        # Verify values match specification
+        assert data["application_id"] == "12345"
+        assert data["interview_status"] == "attended"

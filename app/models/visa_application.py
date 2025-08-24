@@ -44,6 +44,11 @@ class VisaApplication:
         self.uploaded_documents = {}
         self.document_validation_results = {}
         self.extracted_text = {}
+        
+        # Interview attendance specific fields
+        self.interview_attendance_status = None
+        self.interview_attended = False
+        self.attendance_data = {}
     
     def select_visa_type(self, visa_type):
         """Select the appropriate visa type (B-1/B-2, F-1, H-1B, etc.)"""
@@ -135,6 +140,18 @@ class VisaApplication:
         total_documents = len(self.document_validation_results)
         
         return f"Documents uploaded and validated: {successful_validations}/{total_documents} validations passed"
+    
+    def attend_interview(self, attendance_data: dict):
+        """Mark interview attendance status"""
+        # Store attendance information
+        self.attendance_data = attendance_data.copy()
+        self.interview_attendance_status = attendance_data.get("status")
+        self.interview_attended = (attendance_data.get("status") == "attended")
+        
+        if self.interview_attended:
+            return f"Interview attendance marked as 'attended' for application {attendance_data.get('application_id', 'N/A')}"
+        else:
+            return f"Interview attendance marked as 'missed' for application {attendance_data.get('application_id', 'N/A')}"
     
     def schedule_appointment(self):
         """Schedule an appointment at the U.S. embassy or consulate"""
